@@ -1,0 +1,9 @@
+{
+  "commodity": "Gold",
+  "rmse": 104.9468,
+  "mae": 81.4834,
+  "mape": 4.2051,
+  "directional_accuracy": 50.5,
+  "w_lgbm": 0.55,
+  "w_sarima": 0.45
+}

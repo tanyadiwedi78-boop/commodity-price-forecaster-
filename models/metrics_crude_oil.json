@@ -1,0 +1,9 @@
+{
+  "commodity": "Crude_oil",
+  "rmse": 10.4971,
+  "mae": 8.6047,
+  "mape": 9.318,
+  "directional_accuracy": 52.6,
+  "w_lgbm": 0.55,
+  "w_sarima": 0.45
+}

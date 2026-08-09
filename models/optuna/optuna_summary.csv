@@ -1,0 +1,6 @@
+commodity,baseline_rmse,best_rmse,improvement_pct
+Gold,72.5071,72.6042,-0.13
+Silver,1.2617,1.0724,15.0
+Crude_oil,10.0584,9.8595,1.98
+Natural Gas,0.4809,0.4721,1.84
+Copper,0.2796,0.2669,4.53

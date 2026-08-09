@@ -1,0 +1,9 @@
+{
+  "commodity": "Silver",
+  "rmse": 1.0307,
+  "mae": 0.8136,
+  "mape": 3.7835,
+  "directional_accuracy": 52.0,
+  "w_lgbm": 0.55,
+  "w_sarima": 0.45
+}

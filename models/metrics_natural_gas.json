@@ -1,0 +1,9 @@
+{
+  "commodity": "Natural Gas",
+  "rmse": 1.8771,
+  "mae": 1.2465,
+  "mape": 20.7331,
+  "directional_accuracy": 51.3,
+  "w_lgbm": 0.55,
+  "w_sarima": 0.45
+}

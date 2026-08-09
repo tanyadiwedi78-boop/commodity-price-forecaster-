@@ -1,0 +1,47 @@
+{
+  "gold": {
+    "commodity": "Gold",
+    "rmse": 624.87,
+    "mae": 513.8772,
+    "mape": 12.8512,
+    "directional_accuracy": 54.5,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
+  },
+  "silver": {
+    "commodity": "Silver",
+    "rmse": 16.1187,
+    "mae": 11.6838,
+    "mape": 19.8024,
+    "directional_accuracy": 59.1,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
+  },
+  "crude_oil": {
+    "commodity": "Crude_oil",
+    "rmse": 9.9853,
+    "mae": 7.9439,
+    "mape": 11.1378,
+    "directional_accuracy": 50.0,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
+  },
+  "natural_gas": {
+    "commodity": "Natural Gas",
+    "rmse": 0.8886,
+    "mae": 0.7306,
+    "mape": 20.1805,
+    "directional_accuracy": 40.9,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
+  },
+  "copper": {
+    "commodity": "Copper",
+    "rmse": 0.6918,
+    "mae": 0.5665,
+    "mape": 10.3352,
+    "directional_accuracy": 54.5,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
+  }
+}

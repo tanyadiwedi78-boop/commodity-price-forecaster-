@@ -1,0 +1,9 @@
+{
+  "commodity": "Copper",
+  "rmse": 0.1727,
+  "mae": 0.1284,
+  "mape": 3.3717,
+  "directional_accuracy": 48.4,
+  "w_lgbm": 0.55,
+  "w_sarima": 0.45
+}
