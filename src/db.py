@@ -47,6 +47,15 @@ def init_tables():
                 trained_at     TIMESTAMP DEFAULT NOW());
             """))
 
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS current_prices (
+            commodity     VARCHAR(50) PRIMARY KEY,
+            price         NUMERIC(14,2) NOT NULL,
+            change_pct    NUMERIC(8,2),
+            price_date    DATE NOT NULL,
+            updated_at    TIMESTAMP DEFAULT NOW());
+            """))
+
         # useful indexes for the queries your FASTAPI backend will run
         conn.execute(text("""
             CREATE INDEX IF NOT EXISTS idx_forecasts_commodity_date ON forecasts (commodity , forecast_date);
@@ -54,7 +63,7 @@ def init_tables():
 
         conn.commit()
 
-    print("Tables ready: forecasts , model_metrics")
+    print("Tables ready: forecasts , model_metrics , current_prices")
 
 if __name__ == "__main__":
     init_tables()
