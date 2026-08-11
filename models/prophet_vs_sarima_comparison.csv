@@ -1,0 +1,6 @@
+commodity,lgbm_rmse,prophet_rmse,prophet_ensemble_rmse,prophet_ensemble_mae,w_lgbm,w_prophet,sarima_ensemble_rmse,prophet_better
+Gold,1461.4965,1532.3401,1494.7778,1262.7061,0.512,0.488,1358.3535,False
+Silver,20.1516,30.0343,23.9627,16.1478,0.598,0.402,22.2612,False
+Crude_oil,3.329,14.604,3.2503,2.4678,0.814,0.186,3.3458,True
+Natural Gas,0.2515,1.8164,0.3252,0.2366,0.878,0.122,0.3205,False
+Copper,0.7451,1.5186,0.9814,0.7286,0.671,0.329,0.7653,False

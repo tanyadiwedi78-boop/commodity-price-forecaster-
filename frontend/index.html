@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Multi-Commodity Price Forecaster — LightGBM + SARIMA ensemble forecasts for Gold, Silver, Crude Oil, Natural Gas, and Copper, priced in INR.">
+<title>Commodity Forecaster | मंडी Terminal</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="particles-bg"></canvas>
+
+<!-- Live ticker strip -->
+<div class="ticker-strip">
+<div class="ticker-track" id="ticker-track">
+    <span class="ticker-item">Loading live prices…</span>
+</div>
+</div>
+
+<nav class="top-nav">
+    <div class="logo">
+    <span class="logo-mark">मं</span>
+    <h1>Commodity<span class="accent">Forecaster</span></h1>
+    </div>
+    <div class="status-badge">
+    <span class="pulse-dot" id="status-dot"></span>
+    <span id="status-text">Checking data source…</span>
+    </div>
+</nav>
+
+<main class="landing">
+
+<header class="hero">
+    <p class="eyebrow">ENSEMBLE FORECASTING · INR</p>
+    <h2 class="hero-title">Five Commodities. One Ensemble.</h2>
+    <p class="hero-desc">
+        LightGBM + SARIMA, tuned per-commodity with Optuna, forecasting Gold, Silver,
+        Crude Oil, Natural Gas, and Copper prices in Indian Rupees.
+    </p>
+</header>
+
+<section class="cards-section">
+    <div class="cards-grid" id="cards-grid">
+    <!-- Cards are injected by dashboard.js -->
+    </div>
+</section>
+
+<section class="chart-section hidden" id="chart-section">
+    <div class="chart-header">
+        <h3 id="chart-title">—</h3>
+        <button class="close-btn" id="chart-close">✕ Close</button>
+    </div>
+
+    <div class="price-header">
+        <span class="price-big" id="price-big">—</span>
+        <span class="price-change" id="price-change">—</span>
+    </div>
+
+    <div class="chart-meta">
+    <div class="meta-item">
+        <span class="meta-label">Ensemble RMSE</span>
+        <span class="meta-value" id="meta-rmse">—</span>
+    </div>
+    <div class="meta-item">
+        <span class="meta-label">Model Split</span>
+        <span class="meta-value" id="meta-split">—</span>
+    </div>
+    </div>
+
+    <div class="recommendation-box hidden" id="recommendation-box">
+        <span class="rec-badge" id="rec-badge-large">—</span>
+        <p class="rec-reasoning" id="rec-reasoning">—</p>
+    </div>
+
+    <div class="chart-canvas-wrap">
+        <canvas id="priceChart"></canvas>
+    </div>
+
+    <div class="timeframe-selector" id="timeframe-selector">
+        <button class="tf-btn" data-days="1">1D</button>
+        <button class="tf-btn" data-days="5">5D</button>
+        <button class="tf-btn" data-days="30">1M</button>
+        <button class="tf-btn active" data-days="365">1Y</button>
+        <button class="tf-btn" data-days="1825">5Y</button>
+        <button class="tf-btn" data-days="99999">Max</button>
+    </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+<p>Multi-Commodity Price Forecaster — built end-to-end with data ingestion, feature engineering, Optuna tuning, and a LightGBM + SARIMA ensemble.</p>
+</footer>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>

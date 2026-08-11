@@ -1,0 +1,35 @@
+#=========================== Dependencies ==============================#
+
+#----------------------Data Processing----------------------------------#
+pandas 
+numpy
+load_dotenv
+urllib
+
+#  --------------------------- Data source -------------------------#
+yfinance # Yahoofinance
+
+#----------------------- Machine Learning Model --------------------#
+lightgbm
+xgboost
+statsmodels  # SARIMAX for seasonality
+
+#-----------------Notebooks /Visualization-------------------------------#
+matplotlib
+seaborn
+plotly
+
+#====================Postgres.sql========================================#
+dotenv
+psycopg2
+
+
+#------------------------API Backend-----------------------------------#
+fastapi
+uvicorn
+pytest
+
+#--------------------------- optuna----------------------------------#
+optuna # hyperparameters tuning 
+
+

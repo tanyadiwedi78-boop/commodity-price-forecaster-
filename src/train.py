@@ -55,19 +55,7 @@ def load_data():
 # ════════════════════════════════════════════════
 
 def make_target(df, horizon=1):
-    """
-    Two targets are created:
-    - 'target' = raw next-day close price (used by SARIMA, and for reporting)
-    - 'target_return' = next-day % return (used by LightGBM)
-
-    Why: LightGBM (like any tree-based model) can never predict a value
-    outside the range it saw during training -- it averages leaf values,
-    it can't extrapolate. If Gold's price moves into territory the model
-    never trained on, price-based predictions go flat. % returns, however,
-    stay in a small bounded range (-5% to +5% on a normal day) no matter
-    how high the absolute price goes -- so the model can keep making
-    reasonable predictions even when the price itself is at record highs.
-    """
+    
     df = df.sort_values("date").reset_index(drop=True)
     df["target"] = df["close_usd"].shift(-horizon)
     df["target_return"] = df["close_usd"].pct_change(horizon).shift(-horizon)
@@ -210,8 +198,7 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
     lgbm_return_dir_acc = evaluate_direction_from_returns(
         test["target_return"].values, lgbm_predicted_returns, "LightGBM"
     )
-    # Add this commodity's metrics to the shared dict -- ONE combined file
-    # gets written at the end of train_all(), not one file per commodity.
+    
     safe_name = name.replace(" ", "_").lower()
     all_metrics[safe_name] = {
         "commodity": name,

@@ -1,0 +1,35 @@
+# Secrets -- NEVER commit
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Logs
+logs/*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# raw data
+data/raw/*
+!data/raw/.gitkeep
+
+# processed data
+data/processed/*
+!data/raw/.gitkeep
+
+
+# Models
+models/*.pkl
+
+# Frontend
+frontend/node_modules/
+frontend/data/forecasts.json
