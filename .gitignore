@@ -1,4 +1,4 @@
-# Secrets -- NEVER commit
+# Secrets
 .env
 
 # Python
@@ -7,6 +7,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.pytest_cache/
 
 # Logs
 logs/*.log
@@ -18,18 +19,17 @@ Thumbs.db
 # Jupyter checkpoints
 .ipynb_checkpoints/
 
-# raw data
-data/raw/*
-!data/raw/.gitkeep
+# Raw & processed data -- bade files, regenerate ho sakte hain
+data/raw/
+data/processed/
 
-# processed data
-data/processed/*
-!data/raw/.gitkeep
-
-
-# Models
+# Trained models -- bade binary files, train.py se regenerate ho sakte hain
 models/*.pkl
+models/optuna/*.csv
+models/backtest_*.csv
 
 # Frontend
 frontend/node_modules/
-frontend/data/forecasts.json
+
+# Editor
+.vscode/

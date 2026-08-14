@@ -11,21 +11,18 @@ from config.settings import (
     COMMODITIES, MODELS_PATH, PROCESSED_PATH,
     FORCAST_DAYS, ENSEMBLE_WEIGHTS, SARIMA_ORDER, SARIMA_SEASONAL
 )
-from src.db import get_engine, init_tables
-from src.data_ingestion import  load_raw , convert_to_inr
+from src.data_ingestion import load_raw, convert_to_inr
 from src.features import (
     add_RSI, add_macd, add_bollinger, add_ema, add_atr,
     add_lag_features, add_rolling_features, add_return_features,
     add_time_features, add_cross_commodity_features
 )
 
+OUTPUT_PATH = "frontend/data/forecasts.json"
+HISTORY_DAYS = 1825
 
-# ════════════════════════════════════════════════
-# METRICS + WEIGHTS
-# ════════════════════════════════════════════════
 
 def load_metrics(name):
-    
     safe_name = name.replace(" ", "_").lower()
     path = f"{MODELS_PATH}all_metrics.json"
     if not os.path.exists(path):
@@ -37,7 +34,6 @@ def load_metrics(name):
 
 
 def load_ensemble_weights(name):
-    
     safe_name = name.replace(" ", "_").lower()
     path = f"{MODELS_PATH}optuna/ensemble_weights_{safe_name}.json"
     if os.path.exists(path):
@@ -52,17 +48,14 @@ def load_ensemble_weights(name):
 
 def get_recommendation(current_price, predicted_price, mape):
     if mape is None or mape == 0:
-        mape = 2.0  # sensible fallback if metrics aren't available yet
+        mape = 2.0
     pct_change = ((predicted_price - current_price) / current_price) * 100
     if pct_change > mape:
-        signal = "BUY"
-        reason = f"Predicted +{pct_change:.2f}% exceeds the model's typical error margin ({mape:.2f}%)"
+        signal, reason = "BUY", f"Predicted +{pct_change:.2f}% exceeds error margin ({mape:.2f}%)"
     elif pct_change < -mape:
-        signal = "SELL"
-        reason = f"Predicted {pct_change:.2f}% falls below the model's typical error margin (-{mape:.2f}%)"
+        signal, reason = "SELL", f"Predicted {pct_change:.2f}% falls below error margin (-{mape:.2f}%)"
     else:
-        signal = "HOLD"
-        reason = f"Predicted {pct_change:+.2f}% is within the model's noise range (±{mape:.2f}%) -- not a confident signal"
+        signal, reason = "HOLD", f"Predicted {pct_change:+.2f}% within noise range (±{mape:.2f}%)"
     return signal, reason, round(pct_change, 2)
 
 
@@ -75,19 +68,12 @@ def load_models(name):
 
 def refit_sarima_on_full_data(df):
     series = df.set_index("date")["close_usd"]
-    model = SARIMAX(
-        series, order=SARIMA_ORDER, seasonal_order=SARIMA_SEASONAL,
-        enforce_stationarity=False, enforce_invertibility=False,
-    )
+    model = SARIMAX(series, order=SARIMA_ORDER, seasonal_order=SARIMA_SEASONAL,
+                    enforce_stationarity=False, enforce_invertibility=False)
     return model.fit(disp=False)
 
 
-# ════════════════════════════════════════════════
-# FEATURE RECOMPUTATION (training wale exact functions reuse)
-# ════════════════════════════════════════════════
-
 def recompute_features_for_all(df_all):
-
     all_dfs = []
     for name in COMMODITIES:
         df = df_all[df_all["commodity"] == name].copy()
@@ -107,14 +93,8 @@ def recompute_features_for_all(df_all):
     return df_combined
 
 
-# ════════════════════════════════════════════════
-# MAIN RECURSIVE ENGINE
-# ════════════════════════════════════════════════
-
 def generate_all_forecasts_recursive(df_all, feat_cols):
-    
     df_working = df_all.copy()
-
     sarima_paths, usdinr_latest, conv_types = {}, {}, {}
     last_closes, last_dates, lgbm_models = {}, {}, {}
 
@@ -128,9 +108,9 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
         last_dates[name] = dfc["date"].iloc[-1]
         lgbm_models[name], _ = load_models(name)
 
-    all_rows = []
+    forecasts_by_commodity = {name: [] for name in COMMODITIES}
 
-    for day in range(FORCAST_DAYS):  # day=0 -> horizon_days=1, day=1 -> horizon_days=2, ...
+    for day in range(FORCAST_DAYS):
         df_feat = recompute_features_for_all(df_working)
         new_rows = []
 
@@ -154,7 +134,6 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
             band_width_usd = rmse * ((day + 1) ** 0.5)
             ci_low_usd = predicted - band_width_usd
             ci_high_usd = predicted + band_width_usd
-
             forecast_date = (last_dates[name] + timedelta(days=day + 1)).date()
 
             def to_inr(price_usd, name=name):
@@ -164,24 +143,21 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
 
             signal, reason, pct_change = get_recommendation(prev_close, predicted, mape)
 
-            all_rows.append({
-                "commodity": name,
-                "forecast_date": forecast_date,
-                "predicted_price": round(to_inr(predicted), 2),
-                "predicted_price_lgbm": round(to_inr(lgbm_price), 2),
-                "predicted_price_sarima": round(to_inr(sarima_price), 2),
+            forecasts_by_commodity[name].append({
+                "date": str(forecast_date),
+                "horizon_days": day + 1,
+                "ensemble_pred": round(to_inr(predicted), 2),
+                "lgbm_pred": round(to_inr(lgbm_price), 2),
+                "sarima_pred": round(to_inr(sarima_price), 2),
                 "ci_low": round(to_inr(ci_low_usd), 2),
                 "ci_high": round(to_inr(ci_high_usd), 2),
-                "horizon_days": day + 1,
-                "model_version": "v2_recursive",
                 "recommendation": signal,
                 "reasoning": reason,
                 "pct_change": pct_change,
             })
 
             new_rows.append({
-                "date": pd.Timestamp(forecast_date),
-                "commodity": name,
+                "date": pd.Timestamp(forecast_date), "commodity": name,
                 "open_usd": predicted, "high_usd": predicted,
                 "low_usd": predicted, "close_usd": predicted,
                 "volume": latest.get("volume", 0),
@@ -191,23 +167,53 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
 
         df_working = pd.concat([df_working, pd.DataFrame(new_rows)], ignore_index=True)
 
-    return pd.DataFrame(all_rows)
+    return forecasts_by_commodity
+
+
+def load_history(name):
+    df = pd.read_csv(PROCESSED_PATH, parse_dates=["date"])
+    df = df[df["commodity"] == name].sort_values("date").tail(HISTORY_DAYS)
+    conv_type = COMMODITIES[name].get("conversion")
+    has_rate = "usdinr" in df.columns
+
+    result = {}
+    for _, row in df.iterrows():
+        price_usd = float(row["close_usd"])
+        if conv_type and has_rate and pd.notna(row["usdinr"]):
+            price = convert_to_inr(price_usd, conv_type, float(row["usdinr"]))
+        else:
+            price = price_usd
+        result[row["date"].strftime("%Y-%m-%d")] = round(price, 2)
+    return result
 
 
 def save_all_forecasts():
-    init_tables()
-    engine = get_engine()
+    print("=" * 55)
+    print("GENERATING RECURSIVE MULTI-DAY FORECASTS -> JSON")
+    print("=" * 55)
 
     df_all = load_raw()
     feat_cols = joblib.load(f"{MODELS_PATH}daily_feature_cols.pkl")
+    forecasts_by_commodity = generate_all_forecasts_recursive(df_all, feat_cols)
 
-    final_df = generate_all_forecasts_recursive(df_all, feat_cols)
-    final_df.to_sql("forecasts", engine, if_exists="append", index=False)
-    print(f"\nSaved {len(final_df)} forecast rows to PostgreSQL")
+    output = {}
+    for name in COMMODITIES:
+        safe_name = name.replace(" ", "_").lower()
+        print(f"  Building output: {name}")
+        output[safe_name] = {
+            "name": name,
+            "unit": COMMODITIES[name]["unit"],
+            "icon": COMMODITIES[name]["icon"],
+            "history": load_history(name),
+            "forecast": forecasts_by_commodity[name],
+            "metrics": load_metrics(name),
+        }
+
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    with open(OUTPUT_PATH, "w") as f:
+        json.dump(output, f, indent=2)
+    print(f"\nSaved: {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
-    print("=" * 55)
-    print("GENERATING & SAVING FORECASTS (Recursive Multi-Day)")
-    print("=" * 55)
     save_all_forecasts()

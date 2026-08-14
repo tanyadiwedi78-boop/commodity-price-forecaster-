@@ -4,7 +4,7 @@ import numpy as np
 import os, sys, time, logging
 from datetime import datetime
 import io
-from sqlalchemy import text
+
 
 sys.path.append(".")
 sys.path.append("..")
@@ -362,24 +362,6 @@ def get_latest_prices():
     return prices
 
 
-def save_latest_prices_to_db():
-    from src.db import get_engine, init_tables
-    from sqlalchemy import text
-    init_tables()
-    engine = get_engine()
-    prices = get_latest_prices()   # already existing function hai isी file mein
-
-    with engine.connect() as conn:
-        for name, info in prices.items():
-            conn.execute(text("""
-                INSERT INTO current_prices (commodity, price, change_pct, price_date)
-                VALUES (:name, :price, :change_pct, :price_date)
-                ON CONFLICT (commodity)
-                DO UPDATE SET price = :price, change_pct = :change_pct,
-                            price_date = :price_date, updated_at = NOW()
-            """), {"name": name, "price": info["price"],
-                "change_pct": info["change_pct"], "price_date": info["date"]})
-        conn.commit()
 
 
 if __name__ == "__main__":
@@ -395,7 +377,6 @@ Step 1: Data Ingestion
     """)
 
     results, df_usdinr = fetch_all()
-    save_latest_prices_to_db() 
 
     log_print("\n" + "=" * 55)
     log_print("SUMMARY - INR Prices:")
