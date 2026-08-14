@@ -1,0 +1,37 @@
+name: Daily Forecast Pipeline
+
+on:
+  schedule:
+    - cron: "30 17 * * 1-5"   # roz 11:00 PM IST (UTC 17:30), Mon-Fri
+  workflow_dispatch:            # manual "Run" button testing ke liye
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily pipeline
+        run: |
+          python src/data_ingestion.py
+          python src/features.py
+          python src/save_forecasts.py
+
+      - name: Commit updated data + forecasts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/data/forecasts.json models/all_metrics.json
+          git diff --staged --quiet || git commit -m "Automated daily forecast update [skip ci]"
+          git push

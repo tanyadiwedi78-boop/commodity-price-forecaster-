@@ -1,0 +1,39 @@
+name: Weekly Model Retrain
+
+on:
+  schedule:
+    - cron: "0 18 * * 0"      # har Sunday 11:30 PM IST
+  workflow_dispatch:            # manual "Run" button testing ke liye
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Retrain models
+        run: |
+          python src/data_ingestion.py
+          python src/features.py
+          python src/train.py
+          python src/save_forecasts.py
+
+      - name: Commit updated models + forecasts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f models/*.pkl
+          git add models/ frontend/data/forecasts.json
+          git diff --staged --quiet || git commit -m "Automated weekly model retrain [skip ci]"
+          git push
