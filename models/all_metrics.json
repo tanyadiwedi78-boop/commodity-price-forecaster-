@@ -1,47 +1,47 @@
 {
   "gold": {
     "commodity": "Gold",
-    "rmse": 135.8863,
-    "mae": 107.1455,
-    "mape": 2.6858,
-    "directional_accuracy": 47.9,
-    "w_lgbm": 0.942,
-    "w_sarima": 0.058
+    "rmse": 123.3509,
+    "mae": 96.2382,
+    "mape": 2.4172,
+    "directional_accuracy": 46.7,
+    "w_lgbm": 0.945,
+    "w_sarima": 0.055
   },
   "silver": {
     "commodity": "Silver",
-    "rmse": 4.3942,
-    "mae": 2.8261,
-    "mape": 4.6079,
-    "directional_accuracy": 48.5,
-    "w_lgbm": 0.909,
-    "w_sarima": 0.091
+    "rmse": 7.1157,
+    "mae": 4.7798,
+    "mape": 7.5431,
+    "directional_accuracy": 48.7,
+    "w_lgbm": 0.865,
+    "w_sarima": 0.135
   },
   "crude_oil": {
     "commodity": "Crude oil",
-    "rmse": 3.3557,
-    "mae": 2.7032,
-    "mape": 3.8509,
-    "directional_accuracy": 49.4,
-    "w_lgbm": 0.823,
-    "w_sarima": 0.177
+    "rmse": 3.6242,
+    "mae": 2.8249,
+    "mape": 4.0631,
+    "directional_accuracy": 49.2,
+    "w_lgbm": 0.818,
+    "w_sarima": 0.182
   },
   "natural_gas": {
     "commodity": "Natural Gas",
-    "rmse": 0.3334,
-    "mae": 0.2302,
-    "mape": 6.401,
-    "directional_accuracy": 45.5,
+    "rmse": 0.3461,
+    "mae": 0.2424,
+    "mape": 6.7489,
+    "directional_accuracy": 47.3,
     "w_lgbm": 0.864,
     "w_sarima": 0.136
   },
   "copper": {
     "commodity": "Copper",
-    "rmse": 0.2036,
-    "mae": 0.1588,
-    "mape": 2.9287,
-    "directional_accuracy": 44.9,
-    "w_lgbm": 0.905,
-    "w_sarima": 0.095
+    "rmse": 0.1747,
+    "mae": 0.1303,
+    "mape": 2.3991,
+    "directional_accuracy": 44.3,
+    "w_lgbm": 0.911,
+    "w_sarima": 0.089
   }
 }

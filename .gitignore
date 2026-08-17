@@ -15,7 +15,7 @@ logs/*.log
 # OS junk
 .DS_Store
 Thumbs.db
-
+python 
 # Jupyter checkpoints
 .ipynb_checkpoints/
 

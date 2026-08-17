@@ -1,57 +1,57 @@
 {
   "Gold": {
-    "n_estimators": 438,
-    "learning_rate": 0.01994481188819324,
-    "num_leaves": 21,
-    "max_depth": 10,
-    "min_child_samples": 15,
-    "subsample": 0.9751951859417751,
-    "colsample_bytree": 0.7486053410621506,
-    "reg_alpha": 5.785182754854467e-05,
-    "reg_lambda": 0.0003008098414763324
+    "n_estimators": 970,
+    "learning_rate": 0.01529972502403231,
+    "num_leaves": 76,
+    "max_depth": 9,
+    "min_child_samples": 22,
+    "subsample": 0.7993847266684446,
+    "colsample_bytree": 0.6940155375602248,
+    "reg_alpha": 7.800242502896987e-07,
+    "reg_lambda": 2.0836846318180497e-07
   },
   "Silver": {
-    "n_estimators": 1031,
-    "learning_rate": 0.0065949895767367876,
-    "num_leaves": 115,
-    "max_depth": 4,
-    "min_child_samples": 49,
-    "subsample": 0.9987345892699312,
-    "colsample_bytree": 0.8349157947896092,
-    "reg_alpha": 5.835860890408526e-05,
-    "reg_lambda": 1.1444122034603435e-05
+    "n_estimators": 1297,
+    "learning_rate": 0.03182984216266246,
+    "num_leaves": 49,
+    "max_depth": 3,
+    "min_child_samples": 17,
+    "subsample": 0.8237864228923429,
+    "colsample_bytree": 0.5154712551604403,
+    "reg_alpha": 5.061039639466453e-05,
+    "reg_lambda": 0.0007224762028498564
   },
-  "Crude_oil": {
-    "n_estimators": 1425,
-    "learning_rate": 0.02839110598948602,
-    "num_leaves": 126,
-    "max_depth": 9,
-    "min_child_samples": 6,
-    "subsample": 0.991891154323979,
-    "colsample_bytree": 0.676817240865163,
-    "reg_alpha": 1.3350338027360124e-08,
-    "reg_lambda": 5.9044010540584064e-05
+  "Crude oil": {
+    "n_estimators": 1103,
+    "learning_rate": 0.042414631784057036,
+    "num_leaves": 50,
+    "max_depth": 3,
+    "min_child_samples": 16,
+    "subsample": 0.9990100037780658,
+    "colsample_bytree": 0.8556922904769476,
+    "reg_alpha": 0.0017362373144319198,
+    "reg_lambda": 0.010868418679944062
   },
   "Natural Gas": {
-    "n_estimators": 1242,
-    "learning_rate": 0.03933863146696773,
-    "num_leaves": 27,
-    "max_depth": 7,
-    "min_child_samples": 14,
-    "subsample": 0.9566654383365185,
-    "colsample_bytree": 0.8011702321723388,
-    "reg_alpha": 1.3956221198335498e-06,
-    "reg_lambda": 0.28615171655815713
+    "n_estimators": 1229,
+    "learning_rate": 0.051127807053322566,
+    "num_leaves": 57,
+    "max_depth": 6,
+    "min_child_samples": 19,
+    "subsample": 0.9057032982199011,
+    "colsample_bytree": 0.9035927264061501,
+    "reg_alpha": 8.215497720288627e-07,
+    "reg_lambda": 0.08480493351945788
   },
   "Copper": {
-    "n_estimators": 998,
-    "learning_rate": 0.07256062357576042,
-    "num_leaves": 60,
+    "n_estimators": 524,
+    "learning_rate": 0.04433547005955207,
+    "num_leaves": 111,
     "max_depth": 3,
-    "min_child_samples": 62,
-    "subsample": 0.764371325837019,
-    "colsample_bytree": 0.8138845534426472,
-    "reg_alpha": 0.012571285878342518,
-    "reg_lambda": 0.000204533106867416
+    "min_child_samples": 47,
+    "subsample": 0.6896313651533447,
+    "colsample_bytree": 0.8360585099583727,
+    "reg_alpha": 0.24103192387960348,
+    "reg_lambda": 1.0504795575059616e-08
   }
 }
