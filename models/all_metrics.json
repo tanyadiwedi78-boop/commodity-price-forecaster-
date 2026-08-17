@@ -1,47 +1,57 @@
 {
   "gold": {
     "commodity": "Gold",
-    "rmse": 123.3509,
-    "mae": 96.2382,
-    "mape": 2.4172,
-    "directional_accuracy": 46.7,
-    "w_lgbm": 0.945,
-    "w_sarima": 0.055
+    "rmse": 590.1722,
+    "mae": 480.01,
+    "mape": 11.7154,
+    "directional_accuracy": 47.5,
+    "directional_accuracy_return_based": 43.6,
+    "direction_clf_accuracy": 53.2,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
   },
   "silver": {
     "commodity": "Silver",
-    "rmse": 7.1157,
-    "mae": 4.7798,
-    "mape": 7.5431,
-    "directional_accuracy": 48.7,
-    "w_lgbm": 0.865,
-    "w_sarima": 0.135
+    "rmse": 13.6148,
+    "mae": 9.4509,
+    "mape": 14.9047,
+    "directional_accuracy": 50.5,
+    "directional_accuracy_return_based": 45.0,
+    "direction_clf_accuracy": 52.6,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
   },
   "crude_oil": {
     "commodity": "Crude oil",
-    "rmse": 3.6242,
-    "mae": 2.8249,
-    "mape": 4.0631,
-    "directional_accuracy": 49.2,
-    "w_lgbm": 0.818,
-    "w_sarima": 0.182
+    "rmse": 6.2146,
+    "mae": 5.3597,
+    "mape": 7.7209,
+    "directional_accuracy": 46.8,
+    "directional_accuracy_return_based": 52.7,
+    "direction_clf_accuracy": 50.0,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
   },
   "natural_gas": {
     "commodity": "Natural Gas",
-    "rmse": 0.3461,
-    "mae": 0.2424,
-    "mape": 6.7489,
-    "directional_accuracy": 47.3,
-    "w_lgbm": 0.864,
-    "w_sarima": 0.136
+    "rmse": 0.7565,
+    "mae": 0.6557,
+    "mape": 18.6487,
+    "directional_accuracy": 47.5,
+    "directional_accuracy_return_based": 48.4,
+    "direction_clf_accuracy": 48.2,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
   },
   "copper": {
     "commodity": "Copper",
-    "rmse": 0.1747,
-    "mae": 0.1303,
-    "mape": 2.3991,
-    "directional_accuracy": 44.3,
-    "w_lgbm": 0.911,
-    "w_sarima": 0.089
+    "rmse": 0.5459,
+    "mae": 0.4333,
+    "mape": 7.7545,
+    "directional_accuracy": 41.4,
+    "directional_accuracy_return_based": 47.8,
+    "direction_clf_accuracy": 50.4,
+    "w_lgbm": 0.55,
+    "w_sarima": 0.45
   }
 }
