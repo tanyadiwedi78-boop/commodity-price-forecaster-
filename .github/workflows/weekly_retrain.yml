@@ -34,7 +34,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add models/*_lgbm.pkl models/daily_feature_cols.pkl models/monthly_feature_cols.pkl
+          git add models/*_lgbm.pkl models/*_dir_clf.pkl models/daily_feature_cols.pkl models/monthly_feature_cols.pkl
           git add models/all_metrics.json models/backtest_*.csv models/metrics_*.json
           git add models/optuna/
           git add frontend/data/forecasts.json

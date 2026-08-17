@@ -15,7 +15,7 @@ from src.data_ingestion import load_raw, convert_to_inr
 from src.features import (
     add_RSI, add_macd, add_bollinger, add_ema, add_atr,
     add_lag_features, add_rolling_features, add_return_features,
-    add_time_features, add_cross_commodity_features
+    add_time_features, add_directional_features, add_cross_commodity_features
 )
 
 OUTPUT_PATH = "frontend/data/forecasts.json"
@@ -64,6 +64,35 @@ def load_lgbm_model(name):
     return joblib.load(f"{MODELS_PATH}{safe_name}_lgbm.pkl")
 
 
+def load_dir_clf(name):
+    """Load direction classifier if available (trained by train.py)."""
+    safe_name = name.replace(" ", "_").lower()
+    path = f"{MODELS_PATH}{safe_name}_dir_clf.pkl"
+    if os.path.exists(path):
+        return joblib.load(path)
+    return None
+
+
+def blend_with_classifier(lgbm_return, X, clf):
+    """Blend regression return with direction classifier probability.
+
+    If classifier agrees with regression direction, amplify by confidence.
+    If they disagree, dampen the regression signal.
+    Falls back to raw regression return when classifier is unavailable.
+    """
+    if clf is None:
+        return lgbm_return
+    dir_prob = float(clf.predict_proba(X)[0, 1])  # P(up)
+    direction_signal = 2 * dir_prob - 1
+    reg_dir = np.sign(lgbm_return)
+    clf_dir = np.sign(direction_signal)
+    if reg_dir == clf_dir:
+        agreement = abs(direction_signal)
+    else:
+        agreement = 0.3 * abs(direction_signal)
+    return lgbm_return * agreement
+
+
 def refit_sarima_on_full_data(df):
     series = df.set_index("date")["close_usd"]
     model = SARIMAX(series, order=SARIMA_ORDER, seasonal_order=SARIMA_SEASONAL,
@@ -85,6 +114,7 @@ def recompute_features_for_all(df_all):
         df = add_rolling_features(df)
         df = add_return_features(df)
         df = add_time_features(df)
+        df = add_directional_features(df)
         all_dfs.append(df)
     df_combined = pd.concat(all_dfs, ignore_index=True)
     df_combined = add_cross_commodity_features(df_combined)
@@ -94,7 +124,7 @@ def recompute_features_for_all(df_all):
 def generate_all_forecasts_recursive(df_all, feat_cols):
     df_working = df_all.copy()
     sarima_paths, usdinr_latest, conv_types = {}, {}, {}
-    last_closes, last_dates, lgbm_models = {}, {}, {}
+    last_closes, last_dates, lgbm_models, dir_clfs = {}, {}, {}, {}
 
     for name in COMMODITIES:
         dfc = df_all[df_all["commodity"] == name].sort_values("date")
@@ -105,6 +135,7 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
         last_closes[name] = float(dfc["close_usd"].iloc[-1])
         last_dates[name] = dfc["date"].iloc[-1]
         lgbm_models[name] = load_lgbm_model(name)
+        dir_clfs[name] = load_dir_clf(name)
 
     forecasts_by_commodity = {name: [] for name in COMMODITIES}
 
@@ -115,7 +146,8 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
         for name in COMMODITIES:
             latest = df_feat[df_feat["commodity"] == name].iloc[-1]
             X = latest[feat_cols].to_frame().T.astype(float)
-            lgbm_return = float(lgbm_models[name].predict(X)[0])
+            raw_return = float(lgbm_models[name].predict(X)[0])
+            lgbm_return = blend_with_classifier(raw_return, X, dir_clfs[name])
 
             prev_close = (last_closes[name] if day == 0
                         else df_working[df_working["commodity"] == name]["close_usd"].iloc[-1])

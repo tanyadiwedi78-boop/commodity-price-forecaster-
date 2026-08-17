@@ -142,6 +142,68 @@ def add_return_features(df):
     return df
 
 
+# ==============================================================
+# DIRECTIONAL / TREND FEATURES
+# Explicit signals that help the model learn UP vs DOWN patterns.
+# The existing features capture magnitude; these capture direction.
+# ==============================================================
+def add_directional_features(df):
+    # Multi-timeframe momentum % (normalized, better than absolute)
+    for d in [3, 7, 14, 30, 60]:
+        df[f"momentum_pct_{d}d"] = df["close_usd"].pct_change(d)
+
+    # Explicit trend direction flags (binary: 1 = up, 0 = down)
+    for d in [1, 5, 10, 20]:
+        df[f"trend_dir_{d}d"] = (df["close_usd"] > df["close_usd"].shift(d)).astype(int)
+
+    # Price position relative to key moving averages
+    for col in ["ema_9", "ema_21", "ema_50", "ema_200"]:
+        if col in df.columns:
+            df[f"above_{col}"] = (df["close_usd"] > df[col]).astype(int)
+
+    # EMA crossover direction (short-term vs long-term trend)
+    if "ema_9" in df.columns and "ema_21" in df.columns:
+        df["ema_cross_direction"] = (df["ema_9"] > df["ema_21"]).astype(int)
+    if "ema_50" in df.columns and "ema_200" in df.columns:
+        df["ema_50_200_direction"] = (df["ema_50"] > df["ema_200"]).astype(int)
+
+    # Gap / overnight return (open vs previous close)
+    if "open_usd" in df.columns:
+        df["gap_return"] = (df["open_usd"] - df["close_usd"].shift(1)) / (
+            df["close_usd"].shift(1) + 1e-9
+        )
+
+    # RSI regime zones (oversold / neutral / overbought)
+    if "rsi_14" in df.columns:
+        df["rsi_oversold"] = (df["rsi_14"] < 30).astype(int)
+        df["rsi_overbought"] = (df["rsi_14"] > 70).astype(int)
+        df["rsi_direction"] = df["rsi_14"].diff().apply(
+            lambda x: 1 if pd.notna(x) and x > 0 else 0
+        )
+
+    # MACD histogram direction
+    if "macd_his" in df.columns:
+        df["macd_hist_positive"] = (df["macd_his"] > 0).astype(int)
+        df["macd_hist_rising"] = (df["macd_his"] > df["macd_his"].shift(1)).astype(int)
+
+    # Consecutive days in same direction (streak length, capped at 10)
+    daily_dir = (df["daily_return"] > 0).astype(int)
+    streak = daily_dir.groupby((daily_dir != daily_dir.shift()).cumsum()).cumcount() + 1
+    df["direction_streak"] = streak.clip(upper=10) * daily_dir.map({1: 1, 0: -1})
+
+    # Volatility regime (high vol = harder to predict direction)
+    df["vol_regime"] = (
+        df["close_usd"].pct_change().rolling(20).std()
+        / (df["close_usd"].pct_change().rolling(60).std() + 1e-9)
+    )
+
+    # Day-of-week average historical return (captures weekly patterns)
+    dow_avg = df.groupby(df["date"].dt.dayofweek)["daily_return"].transform("mean")
+    df["dow_avg_return"] = dow_avg
+
+    return df
+
+
 #==============================================================
 # TIME / SEASONALITY FEATURES
 #==============================================================
@@ -302,6 +364,7 @@ def build_features():
         df = add_rolling_features(df)
         df = add_return_features(df)
         df = add_time_features(df)
+        df = add_directional_features(df)
 
         log_print(f"    Features so far: {df.shape[1]}")
         all_dfs.append(df)

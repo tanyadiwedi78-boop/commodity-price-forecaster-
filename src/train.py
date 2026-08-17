@@ -78,7 +78,7 @@ def split_train_test(df):
 
 def load_tuned_params(name):
     """
-    If tune_hyperparameters.py has been run, use its best params for this
+    If optuna_parameters.py has been run, use its best params for this
     commodity. Otherwise fall back to the defaults in settings.py.
     """
     path = f"{MODELS_PATH}optuna/tuned_lgbm_params.json"
@@ -91,6 +91,11 @@ def load_tuned_params(name):
 
 
 def train_lgbm(train, test, feat_cols, name):
+    """Train LightGBM regressor + direction classifier.
+
+    The classifier learns UP vs DOWN as a binary task. Its probability
+    is blended with the regression return to sharpen direction prediction.
+    """
     X_train, y_train = train[feat_cols], train["target_return"]
     X_test = test[feat_cols]
 
@@ -104,13 +109,42 @@ def train_lgbm(train, test, feat_cols, name):
         if "objectives" in params:
             params["objective"] = params.pop("objectives")
 
+    # --- Regression model (predicts return magnitude) ---
     model = lgb.LGBMRegressor(**params)
     model.fit(X_train, y_train)
-
     predicted_returns = model.predict(X_test)
-    price_preds = test["close_usd"].values * (1 + predicted_returns)
 
-    return model, price_preds, predicted_returns  
+    # --- Direction classifier (predicts UP/DOWN probability) ---
+    y_train_dir = (y_train > 0).astype(int)
+    clf_params = {k: v for k, v in params.items()
+                  if k not in ("objective", "metric")}
+    clf_params.update({
+        "objective": "binary",
+        "metric": "binary_logloss",
+        "n_estimators": min(params.get("n_estimators", 500), 800),
+    })
+    clf = lgb.LGBMClassifier(**clf_params)
+    clf.fit(X_train, y_train_dir)
+    dir_prob = clf.predict_proba(X_test)[:, 1]  # P(up)
+
+    # Blend: use classifier probability to sharpen direction signal.
+    # direction_signal = 2*P(up) - 1  ->  [-1, +1]
+    # blended = regression_return * agreement
+    # agreement = 1 when classifier is certain and agrees with regression,
+    #             < 1 when classifier is uncertain or disagrees.
+    direction_signal = 2 * dir_prob - 1
+    reg_direction = np.sign(predicted_returns)
+    clf_direction = np.sign(direction_signal)
+    agreement = np.where(
+        reg_direction == clf_direction,
+        np.abs(direction_signal),          # agree: amplify by confidence
+        0.3 * np.abs(direction_signal),    # disagree: dampen heavily
+    )
+    blended_returns = predicted_returns * agreement
+
+    price_preds = test["close_usd"].values * (1 + blended_returns)
+
+    return model, clf, price_preds, blended_returns
 
 
 def train_sarima(train, test):
@@ -184,7 +218,7 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
         log_print(f"    Skipped {name} -- no data in train/test window")
         return None
 
-    lgbm_model, lgbm_preds , lgbm_predicted_returns = train_lgbm(train, test, feat_cols, name)
+    lgbm_model, dir_clf, lgbm_preds, lgbm_predicted_returns = train_lgbm(train, test, feat_cols, name)
     sarima_model, sarima_preds = train_sarima(train, test)
 
     # Weighted ensemble (weights from settings.py)
@@ -198,6 +232,11 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
     lgbm_return_dir_acc = evaluate_direction_from_returns(
         test["target_return"].values, lgbm_predicted_returns, "LightGBM"
     )
+
+    # Direction classifier standalone accuracy
+    X_test = test[feat_cols]
+    clf_da = dir_clf.score(X_test, (test["target_return"] > 0).astype(int)) * 100
+    log_print(f"    [Dir.Clf ] Accuracy: {clf_da:5.1f}%")
     
     safe_name = name.replace(" ", "_").lower()
     all_metrics[safe_name] = {
@@ -207,6 +246,7 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
         "mape": round(float(ensemble_mape), 4),
         "directional_accuracy": round(float(ensemble_dir_acc), 1),
         "directional_accuracy_return_based": round(float(lgbm_return_dir_acc), 1),
+        "direction_clf_accuracy": round(float(clf_da), 1),
         "w_lgbm": ENSEMBLE_WEIGHTS["lgbm"],
         "w_sarima": ENSEMBLE_WEIGHTS["sarima"],
     }
@@ -222,10 +262,11 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
     # Save models
     safe_name = name.replace(" ", "_").lower()
     joblib.dump(lgbm_model, f"{MODELS_PATH}{safe_name}_lgbm.pkl")
+    joblib.dump(dir_clf, f"{MODELS_PATH}{safe_name}_dir_clf.pkl")
     joblib.dump(sarima_model, f"{MODELS_PATH}{safe_name}_sarima.pkl")
-    log_print(f"    Saved: {safe_name}_lgbm.pkl, {safe_name}_sarima.pkl")
+    log_print(f"    Saved: {safe_name}_lgbm.pkl, {safe_name}_dir_clf.pkl, {safe_name}_sarima.pkl")
 
-    return {"lgbm": lgbm_model, "sarima": sarima_model}
+    return {"lgbm": lgbm_model, "dir_clf": dir_clf, "sarima": sarima_model}
 
 
 # ════════════════════════════════════════════════
