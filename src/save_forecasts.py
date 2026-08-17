@@ -59,11 +59,9 @@ def get_recommendation(current_price, predicted_price, mape):
     return signal, reason, round(pct_change, 2)
 
 
-def load_models(name):
+def load_lgbm_model(name):
     safe_name = name.replace(" ", "_").lower()
-    lgbm_model = joblib.load(f"{MODELS_PATH}{safe_name}_lgbm.pkl")
-    sarima_model = joblib.load(f"{MODELS_PATH}{safe_name}_sarima.pkl")
-    return lgbm_model, sarima_model
+    return joblib.load(f"{MODELS_PATH}{safe_name}_lgbm.pkl")
 
 
 def refit_sarima_on_full_data(df):
@@ -106,7 +104,7 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
         conv_types[name] = COMMODITIES[name].get("conversion")
         last_closes[name] = float(dfc["close_usd"].iloc[-1])
         last_dates[name] = dfc["date"].iloc[-1]
-        lgbm_models[name], _ = load_models(name)
+        lgbm_models[name] = load_lgbm_model(name)
 
     forecasts_by_commodity = {name: [] for name in COMMODITIES}
 
