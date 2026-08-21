@@ -1,389 +1,497 @@
-// Configurable backend URL -- swap the production URL once FastAPI is deployed
-const API_BASE_URL = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-    ? "http://127.0.0.1:8000"
-    : "https://your-fastapi-app.onrender.com";   // TODO: update once deployed
+// ============================================================
+// COMMODITY INTELLIGENCE — DASHBOARD ENGINE
+// ============================================================
 
-const STATIC_DATA_URL = "data/forecasts.json";
+const DATA_SOURCES = ["data/forecasts.json", "http://localhost:8000/forecasts"];
 
-const COMMODITIES = {
-    gold:        { name: "Gold",         icon: "🥇", unit: "₹/10g" },
-    silver:      { name: "Silver",       icon: "🥈", unit: "₹/kg" },
-    crude_oil:   { name: "Crude Oil",    icon: "🛢",  unit: "₹/barrel" },
-    natural_gas: { name: "Natural Gas",  icon: "🔥", unit: "₹/MMBtu" },
-    copper:      { name: "Copper",       icon: "🟤", unit: "₹/kg" },
-};
+let allData = {};        // raw JSON keyed by safe_name
+let commodities = [];    // processed array
+let sparkCharts = {};    // per-card sparkline charts
+let detailChart = null;  // main detail chart instance
+let activeCommodity = null;
+let activeTimeframe = "1M";
 
-// Generates ~5 years of synthetic daily history for mock/testing mode only.
-// Real data (from export_forecasts.py) already includes full history.
-function generateMockHistory(basePrice, volatility) {
-    const history = {};
-    let price = basePrice * 0.7;   // start lower, trend up over 5 years
-    const days = 1825;
-    const start = new Date();
-    start.setDate(start.getDate() - days);
-
-    for (let i = 0; i < days; i++) {
-        const date = new Date(start);
-        date.setDate(date.getDate() + i);
-        price += (Math.random() - 0.48) * volatility;   // slight upward drift
-        price = Math.max(price, basePrice * 0.3);
-        history[date.toISOString().split("T")[0]] = Math.round(price * 100) / 100;
-    }
-    return history;
-}
-
-const MOCK_HISTORY = {
-    gold: generateMockHistory(73400, 400),
-    silver: generateMockHistory(92100, 500),
-    crude_oil: generateMockHistory(7020, 60),
-    natural_gas: generateMockHistory(221, 4),
-    copper: generateMockHistory(833, 8),
-};
-
-// --- MOCK DATA -- lets you build and test the whole UI before the
-// FastAPI backend exists. Swap 'usingMock' logic once real data flows. ---
-const MOCK_DATA = {
-    gold: {
-        name: "Gold", icon: "🥇", unit: "₹/10g",
-        history: MOCK_HISTORY.gold,
-        forecast: [
-            { date: "2026-07-23", horizon_days: 1, ensemble_pred: 73520, lgbm_pred: 73610, sarima_pred: 73400, recommendation: "BUY", reasoning: "Predicted +0.16% exceeds the model's typical error margin (0.90%)", pct_change: 0.16 },
-            { date: "2026-07-24", horizon_days: 2, ensemble_pred: 73580 },
-            { date: "2026-07-25", horizon_days: 3, ensemble_pred: 73650 },
-        ],
-        metrics: { rmse: 54.30, mape: 0.9, w_lgbm: 0.55, w_sarima: 0.45 },
-    },
-    silver: {
-        name: "Silver", icon: "🥈", unit: "₹/kg",
-        history: MOCK_HISTORY.silver,
-        forecast: [
-            { date: "2026-07-23", horizon_days: 1, ensemble_pred: 92300, lgbm_pred: 92450, sarima_pred: 92100, recommendation: "HOLD", reasoning: "Predicted +0.22% is within the model's noise range (±1.40%) -- not a confident signal", pct_change: 0.22 },
-            { date: "2026-07-24", horizon_days: 2, ensemble_pred: 92450 },
-            { date: "2026-07-25", horizon_days: 3, ensemble_pred: 92600 },
-        ],
-        metrics: { rmse: 210.5, mape: 1.4, w_lgbm: 0.55, w_sarima: 0.45 },
-    },
-    crude_oil: {
-        name: "Crude Oil", icon: "🛢", unit: "₹/barrel",
-        history: MOCK_HISTORY.crude_oil,
-        forecast: [
-            { date: "2026-07-23", horizon_days: 1, ensemble_pred: 7040, lgbm_pred: 7080, sarima_pred: 6990, recommendation: "SELL", reasoning: "Predicted -1.85% falls below the model's typical error margin (-1.80%)", pct_change: -1.85 },
-            { date: "2026-07-24", horizon_days: 2, ensemble_pred: 7010 },
-            { date: "2026-07-25", horizon_days: 3, ensemble_pred: 6980 },
-        ],
-        metrics: { rmse: 78.1, mape: 1.8, w_lgbm: 0.55, w_sarima: 0.45 },
-    },
-    natural_gas: {
-        name: "Natural Gas", icon: "🔥", unit: "₹/MMBtu",
-        history: MOCK_HISTORY.natural_gas,
-        forecast: [
-            { date: "2026-07-23", horizon_days: 1, ensemble_pred: 222, lgbm_pred: 224, sarima_pred: 219 },
-            { date: "2026-07-24", horizon_days: 2, ensemble_pred: 223 },
-            { date: "2026-07-25", horizon_days: 3, ensemble_pred: 225 },
-        ],
-        metrics: { rmse: 4.2, mape: 2.1, w_lgbm: 0.55, w_sarima: 0.45 },
-    },
-    copper: {
-        name: "Copper", icon: "🟤", unit: "₹/kg",
-        history: MOCK_HISTORY.copper,
-        forecast: [
-            { date: "2026-07-23", horizon_days: 1, ensemble_pred: 835, lgbm_pred: 837, sarima_pred: 832 },
-            { date: "2026-07-24", horizon_days: 2, ensemble_pred: 837 },
-            { date: "2026-07-25", horizon_days: 3, ensemble_pred: 839 },
-        ],
-        metrics: { rmse: 6.7, mape: 1.1, w_lgbm: 0.55, w_sarima: 0.45 },
-    },
-};
-
-let cachedApiData = null;
-let cachedStaticData = null;
-let usingMock = false;
-let chartInstance = null;
-
-// --- DATA FETCHING: live API -> static JSON -> mock, in that order ---
-async function loadAllData() {
-    // 1. Try the live FastAPI backend
+// ============================================================
+// DATA LOADING (static JSON first, API fallback)
+// ============================================================
+async function loadForecasts() {
+  for (const url of DATA_SOURCES) {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(`${API_BASE_URL}/api/dashboard`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!res.ok) throw new Error(`API status ${res.status}`);
-        cachedApiData = await res.json();
-        setStatus("live", "Live API connected");
-        return cachedApiData;
-    } catch (err) {
-        console.warn("Live API unreachable, falling back to static JSON:", err.message);
-    }
-
-    // 2. Try the static forecasts.json exported by export_forecasts.py
-    try {
-        const res = await fetch(STATIC_DATA_URL);
-        if (!res.ok) throw new Error("forecasts.json not found");
-        cachedStaticData = await res.json();
-        setStatus("live", "Static forecast data loaded");
-        return cachedStaticData;
-    } catch (err) {
-        console.warn("Static JSON unreachable, falling back to mock data:", err.message);
-    }
-
-    // 3. Fall back to mock data -- lets the UI work standalone
-    usingMock = true;
-    setStatus("mock", "Showing mock data (run save_forecasts.py + export_forecasts.py for live data)");
-    return MOCK_DATA;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const raw = await res.json();
+      return raw;
+    } catch (_) { /* try next */ }
+  }
+  throw new Error("Could not load forecast data from any source");
 }
 
-function setStatus(kind, text) {
-    const dot = document.getElementById("status-dot");
-    const label = document.getElementById("status-text");
-    dot.className = "pulse-dot " + kind;
-    label.textContent = text;
-}
+function processData(raw) {
+  allData = raw;
+  commodities = Object.values(raw).map((c) => {
+    const safeName = Object.keys(raw).find(k => raw[k] === c);
+    const historyEntries = Object.entries(c.history).sort(([a], [b]) => a.localeCompare(b));
+    const last = historyEntries[historyEntries.length - 1];
+    const prev = historyEntries[historyEntries.length - 2];
 
-// --- TICKER STRIP ---
-function renderTicker(data) {
-    const track = document.getElementById("ticker-track");
-    const items = Object.keys(COMMODITIES).map((key) => {
-        const c = data[key];
-        if (!c) return "";
-        const histDates = Object.keys(c.history);
-        const lastPrice = c.history[histDates[histDates.length - 1]];
-        const nextForecast = c.forecast[0] ? c.forecast[0].ensemble_pred : lastPrice;
-        const change = ((nextForecast - lastPrice) / lastPrice) * 100;
-        const cls = change >= 0 ? "price-up" : "price-down";
-        const arrow = change >= 0 ? "▲" : "▼";
-        return `<span class="ticker-item">${c.icon} ${c.name}: ₹${lastPrice.toLocaleString("en-IN")}
-                <span class="${cls}">${arrow} ${Math.abs(change).toFixed(2)}%</span></span>`;
-    });
-    // Duplicate the list so the CSS scroll animation loops seamlessly
-    track.innerHTML = items.join("") + items.join("");
-}
+    const price = last ? last[1] : 0;
+    const prevClose = prev ? prev[1] : price;
+    const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
 
-// --- CARDS ---
-function renderCards(data) {
-    const grid = document.getElementById("cards-grid");
-    grid.innerHTML = "";
+    const sparkline = historyEntries.slice(-30).map(([d, p]) => ({ date: d, price: p }));
+    const fullHistory = historyEntries.map(([d, p]) => ({ date: d, price: p }));
 
-    Object.keys(COMMODITIES).forEach((key) => {
-        const c = data[key];
-        if (!c) return;
-
-        const histDates = Object.keys(c.history);
-        const lastPrice = c.history[histDates[histDates.length - 1]];
-        const nextForecast = c.forecast[0] ? c.forecast[0].ensemble_pred : lastPrice;
-        const change = ((nextForecast - lastPrice) / lastPrice) * 100;
-        const trendClass = change >= 0 ? "up" : "down";
-        const arrow = change >= 0 ? "↑" : "↓";
-
-        const rec = c.forecast[0] ? c.forecast[0].recommendation : null;
-        const recClass = rec ? rec.toLowerCase() : "hold";
-
-        const card = document.createElement("div");
-        card.className = "commodity-card";
-        card.tabIndex = 0;
-        card.innerHTML = `
-            <div class="card-top">
-                <span class="card-icon">${c.icon}</span>
-                <span class="card-name">${c.name}</span>
-            </div>
-            ${rec ? `<span class="rec-badge ${recClass}">${rec}</span>` : ""}
-            <div class="card-price">₹${nextForecast.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-            <div class="card-trend ${trendClass}">${arrow} ${Math.abs(change).toFixed(2)}% vs last close</div>
-            <div class="card-footer">
-                <span>${c.unit}</span>
-                <span>RMSE: ${c.metrics.rmse ?? "—"}</span>
-            </div>
-        `;
-        card.addEventListener("click", () => expandChart(key, c));
-        card.addEventListener("keydown", (e) => { if (e.key === "Enter") expandChart(key, c); });
-        grid.appendChild(card);
-    });
-}
-
-// --- CHART ---
-let currentCommodity = null;   // remembers which commodity is open, for timeframe switching
-
-function expandChart(key, c) {
-    currentCommodity = c;
-    const section = document.getElementById("chart-section");
-    section.classList.remove("hidden");
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    document.getElementById("chart-title").textContent = `${c.icon} ${c.name} — Price Forecast`;
-    document.getElementById("meta-rmse").textContent = c.metrics.rmse ? c.metrics.rmse.toFixed(2) : "—";
-    document.getElementById("meta-split").textContent =
-        c.metrics.w_lgbm ? `LightGBM ${Math.round(c.metrics.w_lgbm * 100)}% · SARIMA ${Math.round(c.metrics.w_sarima * 100)}%` : "—";
-
-    const day1 = c.forecast[0];
-    const recBox = document.getElementById("recommendation-box");
-    if (day1 && day1.recommendation) {
-        recBox.classList.remove("hidden");
-        const badge = document.getElementById("rec-badge-large");
-        badge.textContent = day1.recommendation;
-        badge.className = `rec-badge ${day1.recommendation.toLowerCase()}`;
-        document.getElementById("rec-reasoning").textContent = day1.reasoning || "";
-    } else {
-        recBox.classList.add("hidden");
-    }
-
-    // Default to 1Y view when opening a new commodity
-    document.querySelectorAll(".tf-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelector('.tf-btn[data-days="365"]').classList.add("active");
-
-    updatePriceHeader(c, 365);
-    drawChart(c, 365);
-}
-
-function updatePriceHeader(c, days) {
-    const histDates = Object.keys(c.history).sort();
-    const slice = histDates.slice(-days);
-    if (slice.length === 0) return;
-
-    const latest = c.history[slice[slice.length - 1]];
-    const earliest = c.history[slice[0]];
-    const change = ((latest - earliest) / earliest) * 100;
-    const trendClass = change >= 0 ? "up" : "down";
-    const arrow = change >= 0 ? "▲" : "▼";
-
-    document.getElementById("price-big").textContent = `₹${latest.toLocaleString("en-IN")}`;
-    const changeEl = document.getElementById("price-change");
-    changeEl.textContent = `${arrow} ${Math.abs(change).toFixed(2)}%`;
-    changeEl.className = `price-change ${trendClass}`;
-}
-
-function drawChart(c, timeframeDays) {
-    const ctx = document.getElementById("priceChart").getContext("2d");
-
-    const allHistDates = Object.keys(c.history).sort();
-    const histDates = timeframeDays >= 99999 ? allHistDates : allHistDates.slice(-timeframeDays);
-    const histValues = histDates.map((d) => c.history[d]);
-
-    const fcDates = c.forecast.map((d) => d.date);
-    const fcValues = c.forecast.map((d) => d.ensemble_pred);
-
-    const allLabels = [...histDates, ...fcDates];
-    const historyData = [...histValues, ...Array(fcDates.length).fill(null)];
-    const lastHistValue = histValues[histValues.length - 1];
-    const forecastData = [...Array(histDates.length - 1).fill(null), lastHistValue, ...fcValues];
-
-    if (chartInstance) chartInstance.destroy();
-
-    chartInstance = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: allLabels,
-            datasets: [
-                {
-                    label: "Historical",
-                    data: historyData,
-                    borderColor: "#8B8F98",
-                    backgroundColor: "rgba(139, 143, 152, 0.08)",
-                    borderWidth: 2,
-                    pointRadius: 2,
-                    fill: true,
-                    tension: 0.3,
-                },
-                {
-                    label: "Forecast",
-                    data: forecastData,
-                    borderColor: "#C9A15A",
-                    borderWidth: 2.5,
-                    borderDash: [6, 4],
-                    pointRadius: 4,
-                    pointBackgroundColor: "#C9A15A",
-                    fill: false,
-                    tension: 0.3,
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: "#8B8F98", font: { family: "JetBrains Mono", size: 11 } } },
-                tooltip: {
-                    backgroundColor: "#14171C",
-                    titleColor: "#E8E6E1",
-                    bodyColor: "#C9A15A",
-                    borderColor: "#24282F",
-                    borderWidth: 1,
-                    padding: 10,
-                },
-            },
-            scales: {
-                x: { grid: { color: "#1A1E24" }, ticks: { color: "#8B8F98", maxTicksLimit: 10 } },
-                y: { grid: { color: "#1A1E24" }, ticks: { color: "#8B8F98" } },
-            },
-        },
-    });
-}
-
-// --- PARTICLE BACKGROUND ---
-function initParticles() {
-    const canvas = document.getElementById("particles-bg");
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-    resize();
-    window.addEventListener("resize", resize);
-
-    const particles = Array.from({ length: 45 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.8 + 0.5,
-        vx: (Math.random() - 0.5) * 0.15,
-        vy: (Math.random() - 0.5) * 0.15,
-        alpha: Math.random() * 0.4 + 0.1,
+    const forecast = (c.forecast || []).map((f) => ({
+      date: f.date,
+      horizon: f.horizon_days,
+      ensemble: f.ensemble_pred,
+      lgbm: f.lgbm_pred,
+      sarima: f.sarima_pred,
+      ciLow: f.ci_low,
+      ciHigh: f.ci_high,
+      recommendation: f.recommendation,
+      reasoning: f.reasoning,
+      pctChange: f.pct_change,
     }));
 
-    function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach((p) => {
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.x < 0) p.x = canvas.width;
-            if (p.x > canvas.width) p.x = 0;
-            if (p.y < 0) p.y = canvas.height;
-            if (p.y > canvas.height) p.y = 0;
+    const metrics = c.metrics || {};
+    const firstForecast = forecast[0];
 
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(201, 161, 90, ${p.alpha})`;
-            ctx.fill();
-        });
-        requestAnimationFrame(animate);
-    }
-
-    // Respect reduced-motion preference
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        animate();
-    }
+    return {
+      safeName, name: c.name, icon: c.icon, unit: c.unit,
+      price, prevClose, changePct,
+      sparkline, fullHistory, forecast,
+      metrics,
+      recommendation: firstForecast ? firstForecast.recommendation : "HOLD",
+      reasoning: firstForecast ? firstForecast.reasoning : "",
+    };
+  });
 }
 
-// --- INIT ---
-document.addEventListener("DOMContentLoaded", async () => {
-    initParticles();
+// ============================================================
+// SUMMARY BAR
+// ============================================================
+function renderSummary() {
+  const mapes = commodities.map(c => c.metrics.mape).filter(Boolean);
+  const rmses = commodities.map(c => c.metrics.rmse).filter(Boolean);
+  const avgMape = mapes.length ? (mapes.reduce((a, b) => a + b, 0) / mapes.length).toFixed(2) : "—";
+  const avgRmse = rmses.length ? (rmses.reduce((a, b) => a + b, 0) / rmses.length).toFixed(2) : "—";
 
-    document.getElementById("chart-close").addEventListener("click", () => {
-        document.getElementById("chart-section").classList.add("hidden");
-    });
+  document.getElementById("sumMape").textContent = avgMape + "%";
+  document.getElementById("sumRmse").textContent = avgRmse;
+  document.getElementById("sumCount").textContent = commodities.length;
 
-    document.querySelectorAll(".tf-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            if (!currentCommodity) return;
-            document.querySelectorAll(".tf-btn").forEach((b) => b.classList.remove("active"));
-            btn.classList.add("active");
-            const days = parseInt(btn.dataset.days, 10);
-            updatePriceHeader(currentCommodity, days);
-            drawChart(currentCommodity, days);
-        });
-    });
+  const lastDate = commodities[0]?.fullHistory?.slice(-1)[0]?.date;
+  document.getElementById("lastUpdated").textContent = lastDate
+    ? `Updated ${formatShortDate(lastDate)}` : "Live";
+}
 
-    const data = await loadAllData();
-    renderTicker(data);
-    renderCards(data);
+// ============================================================
+// CARD GRID
+// ============================================================
+function renderGrid() {
+  const grid = document.getElementById("cards-grid");
+  grid.innerHTML = commodities.map((c, i) => cardHTML(c, i)).join("");
+
+  commodities.forEach((c, i) => {
+    drawSparkline(c, i);
+    document.getElementById(`card-${i}`).addEventListener("click", () => selectCommodity(c));
+  });
+}
+
+function cardHTML(c, i) {
+  const isUp = c.changePct >= 0;
+  const dirClass = isUp ? "up" : "down";
+  const sign = isUp ? "+" : "";
+  const recClass = c.recommendation.toLowerCase();
+
+  return `
+    <div class="commodity-card" id="card-${i}" data-name="${c.safeName}">
+      <div class="card-top">
+        <div class="card-icon-name">
+          <span class="card-icon">${c.icon}</span>
+          <div>
+            <div class="card-name">${c.name}</div>
+            <div class="card-unit">${c.unit}</div>
+          </div>
+        </div>
+        <span class="card-signal signal-${recClass}">${c.recommendation}</span>
+      </div>
+
+      <div class="card-price">${formatPrice(c.price)}</div>
+      <div class="card-change-row">
+        <span class="card-change ${dirClass}">${sign}${c.changePct.toFixed(2)}%</span>
+        <span class="card-change-label">vs prev close</span>
+      </div>
+
+      <div class="card-sparkline">
+        <canvas id="spark-${i}"></canvas>
+      </div>
+
+      <div class="card-metrics-row">
+        <div class="card-metric">
+          <div class="card-metric-label">MAPE</div>
+          <div class="card-metric-value">${c.metrics.mape ? c.metrics.mape.toFixed(2) + '%' : '—'}</div>
+        </div>
+        <div class="card-metric">
+          <div class="card-metric-label">RMSE</div>
+          <div class="card-metric-value">${c.metrics.rmse ? c.metrics.rmse.toFixed(2) : '—'}</div>
+        </div>
+        <div class="card-metric">
+          <div class="card-metric-label">30d Fcst</div>
+          <div class="card-metric-value">${c.forecast.length} days</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function drawSparkline(c, i) {
+  const canvas = document.getElementById(`spark-${i}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const isUp = c.changePct >= 0;
+  const color = isUp ? "#3FB68B" : "#E85D5D";
+  const bgColor = isUp ? "rgba(63,182,139,0.08)" : "rgba(232,93,93,0.08)";
+
+  if (sparkCharts[i]) sparkCharts[i].destroy();
+  sparkCharts[i] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: c.sparkline.map(p => p.date),
+      datasets: [{
+        data: c.sparkline.map(p => p.price),
+        borderColor: color,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.35,
+        fill: true,
+        backgroundColor: bgColor,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: { x: { display: false }, y: { display: false } },
+    }
+  });
+}
+
+// ============================================================
+// SELECT COMMODITY → SHOW DETAIL BELOW CARDS
+// ============================================================
+function selectCommodity(c) {
+  activeCommodity = c;
+  activeTimeframe = "1M";
+
+  // Highlight active card
+  document.querySelectorAll(".commodity-card").forEach(el => el.classList.remove("active"));
+  const idx = commodities.indexOf(c);
+  const card = document.getElementById(`card-${idx}`);
+  if (card) card.classList.add("active");
+
+  renderDetailHeader(c);
+  renderDetailMetrics(c);
+  renderDetailChart(c);
+  renderRecommendation(c);
+  renderForecastTable(c);
+
+  const section = document.getElementById("detail-section");
+  section.classList.remove("hidden");
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderDetailHeader(c) {
+  const isUp = c.changePct >= 0;
+  document.getElementById("detailIcon").textContent = c.icon;
+  document.getElementById("detailName").textContent = c.name;
+  document.getElementById("detailUnit").textContent = c.unit;
+  document.getElementById("detailPrice").textContent = "₹" + formatPrice(c.price);
+  const changeEl = document.getElementById("detailChange");
+  changeEl.textContent = `${isUp ? "▲" : "▼"} ${Math.abs(c.changePct).toFixed(2)}% today`;
+  changeEl.className = "detail-change " + (isUp ? "up" : "down");
+}
+
+function renderDetailMetrics(c) {
+  const m = c.metrics;
+  const pills = [
+    { label: "MAPE", value: m.mape ? m.mape.toFixed(2) + "%" : "—" },
+    { label: "RMSE", value: m.rmse ? m.rmse.toFixed(2) : "—" },
+    { label: "Direction Acc.", value: m.directional_accuracy ? m.directional_accuracy + "%" : "—" },
+    { label: "LGBM Weight", value: m.w_lgbm ? (m.w_lgbm * 100).toFixed(0) + "%" : "—" },
+    { label: "SARIMA Weight", value: m.w_sarima ? (m.w_sarima * 100).toFixed(0) + "%" : "—" },
+  ];
+  document.getElementById("detailMetrics").innerHTML = pills.map(p =>
+    `<div class="metric-pill"><span class="metric-pill-label">${p.label}</span><span class="metric-pill-value">${p.value}</span></div>`
+  ).join("");
+}
+
+function renderRecommendation(c) {
+  const first = c.forecast[0];
+  if (!first) return;
+  const cls = first.recommendation.toLowerCase();
+  document.getElementById("recommendBanner").innerHTML = `
+    <span class="rec-badge ${cls}">${first.recommendation}</span>
+    <span class="rec-reason">${first.reasoning}</span>
+    <span class="rec-reason" style="margin-left:auto">Horizon: 1–30 days</span>
+  `;
+}
+
+// ============================================================
+// DETAIL CHART — history (blue) + forecast (green) + CI band + LGBM + SARIMA
+// ============================================================
+function renderDetailChart(c) {
+  const ctx = document.getElementById("detailChart").getContext("2d");
+
+  // Filter history by timeframe
+  const history = filterByTimeframe(c.fullHistory, activeTimeframe);
+  const forecast = c.forecast;
+
+  // History data
+  const histLabels = history.map(p => p.date);
+  const histPrices = history.map(p => p.price);
+
+  // Forecast data
+  const fcstLabels = forecast.map(f => f.date);
+  const fcstPrices = forecast.map(f => f.ensemble);
+  const lgbmPrices = forecast.map(f => f.lgbm);
+  const sarimaPrices = forecast.map(f => f.sarima);
+  const ciHigh = forecast.map(f => f.ciHigh);
+  const ciLow = forecast.map(f => f.ciLow);
+
+  // Build combined labels
+  const allLabels = [...histLabels, ...fcstLabels];
+
+  // History series (null for forecast period)
+  const histData = [...histPrices, ...new Array(fcstLabels.length).fill(null)];
+  // Forecast series (null for history period)
+  const fcstData = [...new Array(histLabels.length).fill(null), ...fcstPrices];
+  // LGBM series
+  const lgbmData = [...new Array(histLabels.length).fill(null), ...lgbmPrices];
+  // SARIMA series
+  const sarimaData = [...new Array(histLabels.length).fill(null), ...sarimaPrices];
+  // CI high
+  const ciHighData = [...new Array(histLabels.length).fill(null), ...ciHigh];
+  // CI low
+  const ciLowData = [...new Array(histLabels.length).fill(null), ...ciLow];
+
+  // Bridge point: last history value carried into first forecast slot
+  const bridgeIdx = histLabels.length;
+  if (bridgeIdx > 0 && fcstPrices.length > 0) {
+    fcstData[bridgeIdx - 1] = histPrices[histPrices.length - 1];
+    lgbmData[bridgeIdx - 1] = histPrices[histPrices.length - 1];
+    sarimaData[bridgeIdx - 1] = histPrices[histPrices.length - 1];
+    ciHighData[bridgeIdx - 1] = histPrices[histPrices.length - 1];
+    ciLowData[bridgeIdx - 1] = histPrices[histPrices.length - 1];
+  }
+
+  if (detailChart) detailChart.destroy();
+
+  detailChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: allLabels,
+      datasets: [
+        {
+          label: "CI High",
+          data: ciHighData,
+          borderColor: "transparent",
+          backgroundColor: "rgba(34,197,94,0.10)",
+          fill: "+1",
+          pointRadius: 0,
+          order: 5,
+        },
+        {
+          label: "CI Low",
+          data: ciLowData,
+          borderColor: "transparent",
+          backgroundColor: "transparent",
+          fill: false,
+          pointRadius: 0,
+          order: 5,
+        },
+        {
+          label: "Historical",
+          data: histData,
+          borderColor: "#3B82F6",
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.2,
+          fill: false,
+          order: 2,
+        },
+        {
+          label: "Ensemble Forecast",
+          data: fcstData,
+          borderColor: "#22C55E",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.2,
+          fill: false,
+          order: 1,
+        },
+        {
+          label: "LightGBM",
+          data: lgbmData,
+          borderColor: "#F59E0B",
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          tension: 0.2,
+          fill: false,
+          order: 3,
+        },
+        {
+          label: "SARIMA",
+          data: sarimaData,
+          borderColor: "#A78BFA",
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          tension: 0.2,
+          fill: false,
+          order: 4,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#1A1D22",
+          borderColor: "#24282F",
+          borderWidth: 1,
+          titleColor: "#E8E6E1",
+          bodyColor: "#8B8F98",
+          padding: 12,
+          displayColors: true,
+          callbacks: {
+            title: (items) => items[0]?.label || "",
+            label: (item) => {
+              if (item.raw === null) return null;
+              return ` ${item.dataset.label}: ₹${Number(item.raw).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: "#5A5E66", maxTicksLimit: 10, font: { size: 10 } },
+          grid: { color: "rgba(36,40,47,0.5)", drawBorder: false },
+        },
+        y: {
+          ticks: {
+            color: "#5A5E66",
+            font: { size: 10 },
+            callback: (v) => "₹" + formatCompact(v),
+          },
+          grid: { color: "rgba(36,40,47,0.5)", drawBorder: false },
+        },
+      },
+    }
+  });
+
+  // Wire timeframe buttons
+  document.querySelectorAll("#detailTimeframes .tf-btn").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll("#detailTimeframes .tf-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeTimeframe = btn.dataset.tf;
+      renderDetailChart(activeCommodity);
+    };
+  });
+}
+
+// ============================================================
+// FORECAST TABLE
+// ============================================================
+function renderForecastTable(c) {
+  const tbody = document.getElementById("forecastTableBody");
+  tbody.innerHTML = c.forecast.map((f, i) => {
+    const isUp = f.pctChange >= 0;
+    const dirClass = isUp ? "up" : "down";
+    const sign = isUp ? "+" : "";
+    const sigClass = f.recommendation.toLowerCase();
+    return `<tr>
+      <td>${f.horizon}</td>
+      <td>${formatShortDate(f.date)}</td>
+      <td><strong>₹${formatPrice(f.ensemble)}</strong></td>
+      <td>₹${formatPrice(f.lgbm)}</td>
+      <td>₹${formatPrice(f.sarima)}</td>
+      <td>₹${formatPrice(f.ciLow)}</td>
+      <td>₹${formatPrice(f.ciHigh)}</td>
+      <td class="${dirClass}" style="color:${isUp ? 'var(--green)' : 'var(--red)'}">${sign}${f.pctChange.toFixed(2)}%</td>
+      <td><span class="table-signal signal-${sigClass}">${f.recommendation}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function formatPrice(v) {
+  if (v === null || v === undefined) return "—";
+  return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function formatCompact(v) {
+  if (Math.abs(v) >= 100000) return (v / 100000).toFixed(1) + "L";
+  if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1) + "K";
+  return v.toFixed(0);
+}
+
+function formatShortDate(dateStr) {
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
+  } catch { return dateStr; }
+}
+
+function filterByTimeframe(history, tf) {
+  if (tf === "MAX" || !history.length) return history;
+  const now = new Date(history[history.length - 1].date + "T00:00:00");
+  const months = { "1M": 1, "3M": 3, "6M": 6, "1Y": 12, "3Y": 36 }[tf] || 1;
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - months);
+  return history.filter(p => new Date(p.date + "T00:00:00") >= cutoff);
+}
+
+// ============================================================
+// CLOSE DETAIL
+// ============================================================
+document.addEventListener("click", (e) => {
+  if (e.target.id === "detailClose" || e.target.closest("#detailClose")) {
+    document.getElementById("detail-section").classList.add("hidden");
+    document.querySelectorAll(".commodity-card").forEach(el => el.classList.remove("active"));
+    activeCommodity = null;
+  }
 });
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  const grid = document.getElementById("cards-grid");
+  grid.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading forecast data...</p>
+    </div>`;
+
+  try {
+    const raw = await loadForecasts();
+    processData(raw);
+    renderSummary();
+    renderGrid();
+  } catch (err) {
+    grid.innerHTML = `
+      <div class="loading-state">
+        <p class="error-text">Failed to load forecasts: ${err.message}</p>
+        <p class="loading-text" style="margin-top:8px">Run <code>python src/save_forecasts.py</code> to generate data.</p>
+      </div>`;
+  }
+}
+
+init();
