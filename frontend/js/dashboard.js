@@ -87,6 +87,17 @@ function renderSummary() {
 }
 
 // ============================================================
+// TICKER MAPPING
+// ============================================================
+const TICKER_MAP = {
+  "Gold": "XAU",
+  "Silver": "XAG",
+  "Crude oil": "CL",
+  "Natural Gas": "NG",
+  "Copper": "HG",
+};
+
+// ============================================================
 // CARD GRID
 // ============================================================
 function renderGrid() {
@@ -103,45 +114,43 @@ function cardHTML(c, i) {
   const isUp = c.changePct >= 0;
   const dirClass = isUp ? "up" : "down";
   const sign = isUp ? "+" : "";
-  const recClass = c.recommendation.toLowerCase();
+  const ticker = TICKER_MAP[c.name] || c.name.slice(0, 3).toUpperCase();
 
   return `
     <div class="commodity-card" id="card-${i}" data-name="${c.safeName}">
-      <div class="card-top">
-        <div class="card-icon-name">
-          <span class="card-icon">${c.icon}</span>
-          <div>
-            <div class="card-name">${c.name}</div>
-            <div class="card-unit">${c.unit}</div>
-          </div>
+      <!-- Currency pair header -->
+      <div class="card-pair-header">
+        <div class="card-pair-left">
+          <span class="card-ticker">${ticker}</span>
+          <span class="card-pair-label">${c.name}</span>
         </div>
-        <span class="card-signal signal-${recClass}">${c.recommendation}</span>
+        <span class="card-arrow">→</span>
+        <div class="card-pair-right">
+          <span class="card-flag-inr"><span class="flag-emoji">🇮🇳</span> INR ₹</span>
+          <span class="card-pair-label">Indian Rupee FX</span>
+        </div>
       </div>
 
-      <div class="card-price">${formatPrice(c.price)}</div>
-      <div class="card-change-row">
+      <!-- Price row -->
+      <div class="card-price-row">
+        <span class="card-price">${formatPrice(c.price)}</span>
         <span class="card-change ${dirClass}">${sign}${c.changePct.toFixed(2)}%</span>
-        <span class="card-change-label">vs prev close</span>
       </div>
 
+      <!-- Sparkline -->
       <div class="card-sparkline">
+        <div class="card-prev-close">Previous close ${formatPrice(c.prevClose)}</div>
+        <div class="card-spark-pct ${dirClass}">${sign}${c.changePct.toFixed(2)}%</div>
         <canvas id="spark-${i}"></canvas>
       </div>
 
-      <div class="card-metrics-row">
-        <div class="card-metric">
-          <div class="card-metric-label">MAPE</div>
-          <div class="card-metric-value">${c.metrics.mape ? c.metrics.mape.toFixed(2) + '%' : '—'}</div>
-        </div>
-        <div class="card-metric">
-          <div class="card-metric-label">RMSE</div>
-          <div class="card-metric-value">${c.metrics.rmse ? c.metrics.rmse.toFixed(2) : '—'}</div>
-        </div>
-        <div class="card-metric">
-          <div class="card-metric-label">30d Fcst</div>
-          <div class="card-metric-value">${c.forecast.length} days</div>
-        </div>
+      <!-- Timeframe pills -->
+      <div class="card-timeframes">
+        ${["1D","5D","1M","1Y","5Y","Max"].map((tf,j) =>
+          `<button class="card-tf-pill ${j===0 ? "active" : ""}">${tf}</button>`).join("")}
       </div>
+
+      <a class="card-see-more" href="javascript:void(0)">See full forecast →</a>
     </div>`;
 }
 
@@ -151,27 +160,44 @@ function drawSparkline(c, i) {
   const ctx = canvas.getContext("2d");
   const isUp = c.changePct >= 0;
   const color = isUp ? "#3FB68B" : "#E85D5D";
-  const bgColor = isUp ? "rgba(63,182,139,0.08)" : "rgba(232,93,93,0.08)";
+  const bgColor = isUp ? "rgba(63,182,139,0.10)" : "rgba(232,93,93,0.10)";
+  const n = c.sparkline.length;
 
   if (sparkCharts[i]) sparkCharts[i].destroy();
   sparkCharts[i] = new Chart(ctx, {
     type: "line",
     data: {
       labels: c.sparkline.map(p => p.date),
-      datasets: [{
-        data: c.sparkline.map(p => p.price),
-        borderColor: color,
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.35,
-        fill: true,
-        backgroundColor: bgColor,
-      }]
+      datasets: [
+        {
+          label: "Price",
+          data: c.sparkline.map(p => p.price),
+          borderColor: color,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.35,
+          fill: true,
+          backgroundColor: bgColor,
+          order: 1,
+        },
+        {
+          label: "Previous close",
+          data: new Array(n).fill(c.prevClose),
+          borderColor: "#5A5E66",
+          borderWidth: 1,
+          borderDash: [3, 3],
+          pointRadius: 0,
+          fill: false,
+          order: 2,
+        }
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { enabled: false } },
       scales: { x: { display: false }, y: { display: false } },
+      animation: false,
     }
   });
 }

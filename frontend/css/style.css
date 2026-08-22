@@ -3,10 +3,10 @@
    ============================================================ */
 
 :root {
-  --bg-base: #0B0D10;
-  --bg-card: #14171C;
-  --bg-elevated: #1A1D22;
-  --border: #24282F;
+  --bg-base: #0c0e14;
+  --bg-card: #151821;
+  --bg-elevated: #1c2030;
+  --border: #2a2f3f;
   --text-primary: #E8E6E1;
   --text-secondary: #8B8F98;
   --text-muted: #5A5E66;
@@ -32,7 +32,8 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background: var(--bg-base);
+  background: radial-gradient(circle at 50% 0%, #151d2e 0%, #0c0e14 45%);
+  background-attachment: fixed;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text-primary);
   min-height: 100vh;
@@ -120,23 +121,30 @@ body {
 .section-subtitle { font-size: 13px; color: var(--text-secondary); }
 
 /* ============================================================
-   CARDS GRID
+   CARDS GRID — ALL 5 IN ONE ROW
    ============================================================ */
 .cards-grid {
-  max-width: 1400px;
+  max-width: 1800px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  padding: 12px 32px 24px;
+  display: flex;
+  gap: 10px;
+  padding: 16px 24px 24px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.cards-grid::-webkit-scrollbar { height: 6px; }
+.cards-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ---- INDIVIDUAL CARD ---- */
 .commodity-card {
+  flex: 1 1 0;
+  min-width: 180px;
+  max-width: 320px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+  border-radius: 16px;
+  padding: 12px;
   cursor: pointer;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
   position: relative;
@@ -144,79 +152,135 @@ body {
 }
 .commodity-card:hover {
   border-color: var(--blue);
-  box-shadow: 0 4px 20px rgba(59,130,246,0.12);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(59,130,246,0.14);
+  transform: translateY(-3px);
 }
 .commodity-card.active {
   border-color: var(--gold);
-  box-shadow: 0 4px 20px rgba(201,161,90,0.15);
+  box-shadow: 0 8px 28px rgba(201,161,90,0.18);
 }
 
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-.card-icon-name {
+/* Currency pair header: XAU → 🇮🇳 INR ₹ */
+.card-pair-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 2px;
 }
-.card-icon { font-size: 24px; }
-.card-name { font-size: 15px; font-weight: 700; }
-.card-unit { font-size: 11px; color: var(--text-secondary); }
-.card-signal {
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11px;
+.card-pair-left, .card-pair-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.card-pair-right { align-items: flex-end; }
+.card-ticker {
+  font-size: 12px;
   font-weight: 700;
+  color: var(--text-primary);
   letter-spacing: 0.3px;
 }
-.signal-buy { background: var(--green-bg); color: var(--green); }
-.signal-sell { background: var(--red-bg); color: var(--red); }
-.signal-hold { background: var(--gold-bg); color: var(--gold); }
+.card-pair-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.card-arrow {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+.card-flag-inr {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.card-flag-inr img, .card-flag-inr .flag-emoji {
+  width: 13px;
+  height: 13px;
+  font-size: 12px;
+}
 
+/* Price row */
+.card-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
 .card-price {
-  font-size: 28px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.5px;
-  margin: 4px 0;
-}
-.card-change-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  color: #fff;
 }
 .card-change {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+  border-radius: 10px;
 }
 .card-change.up { color: var(--green); background: var(--green-bg); }
 .card-change.down { color: var(--red); background: var(--red-bg); }
-.card-change-label { font-size: 11px; color: var(--text-secondary); }
 
+/* Sparkline area */
 .card-sparkline {
-  height: 64px;
-  margin: 8px -4px 0;
+  height: 52px;
+  margin: 4px -4px 0;
+  position: relative;
 }
 .card-sparkline canvas { width: 100% !important; height: 100% !important; }
+.card-prev-close {
+  position: absolute;
+  right: 4px;
+  top: 2px;
+  font-size: 8px;
+  color: var(--text-muted);
+  z-index: 2;
+}
+.card-spark-pct {
+  position: absolute;
+  right: 4px;
+  bottom: 14px;
+  font-size: 10px;
+  font-weight: 700;
+  z-index: 2;
+}
+.card-spark-pct.up { color: var(--green); }
+.card-spark-pct.down { color: var(--red); }
 
-.card-metrics-row {
+/* Timeframe pills */
+.card-timeframes {
   display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  gap: 3px;
+  margin-top: 6px;
 }
-.card-metric {
+.card-tf-pill {
+  padding: 3px 7px;
+  border-radius: 12px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.card-tf-pill:hover { color: var(--text-primary); }
+.card-tf-pill.active { background: var(--blue); color: #fff; }
+
+/* See more link */
+.card-see-more {
+  display: block;
+  margin-top: 6px;
   text-align: center;
+  font-size: 10px;
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
 }
-.card-metric-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-.card-metric-value { font-size: 13px; font-weight: 600; margin-top: 1px; }
+.card-see-more:hover { text-decoration: underline; }
 
 /* ============================================================
    DETAIL SECTION (below cards, not modal)

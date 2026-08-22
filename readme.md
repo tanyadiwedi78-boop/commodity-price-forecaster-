@@ -25,16 +25,10 @@
 ## Dashboard Preview
 
 <p align="center">
-  <img src="docs/dashboard_overview.png" alt="Dashboard Overview" width="100%" />
+  <img src="docs/dashboard_full.png" alt="Commodity Intelligence Dashboard — All 5 commodities in one row with India Rupee (INR) pairs" width="100%" />
 </p>
 
-<p align="center">
-  <img src="docs/dashboard_detail.png" alt="Expanded Detail View" width="100%" />
-</p>
-
-<p align="center">
-  <img src="docs/dashboard_table.png" alt="Forecast Breakdown Table" width="100%" />
-</p>
+<p align="center"><em>Live commodity cards: XAU, XAG, CL, NG, HG priced in INR. Dark theme, ticker-flag header, sparklines, and one-click detailed forecasts.</em></p>
 
 ---
 
