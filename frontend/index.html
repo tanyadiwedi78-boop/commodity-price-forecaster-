@@ -5,142 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Live multi-commodity price forecasting dashboard -- Gold, Silver, Crude Oil, Natural Gas, and Copper, powered by a LightGBM + SARIMA ensemble model.">
   <meta name="author" content="Tanya Diwedi">
-  <title>Commodity Intelligence | ML-Powered Price Forecasts</title>
+  <title>Commodity Price Forecaster | Live ML-Powered Forecasts</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
 
-  <!-- ========== HEADER ========== -->
   <header class="site-header">
-    <div class="header-inner">
-      <div class="brand">
-        <span class="logo-icon">📈</span>
-        <div>
-          <h1 class="logo-text">Commodity Intelligence</h1>
-          <p class="tagline">ML-powered multi-day forecasts &middot; LightGBM + SARIMA Ensemble</p>
-        </div>
-      </div>
-      <div class="header-meta">
-        <span class="meta-badge" id="lastUpdated">Loading...</span>
-        <span class="meta-badge badge-model">Ensemble v2</span>
-      </div>
-    </div>
+    <div class="logo">📈 Commodity Intelligence</div>
+    <p class="tagline">Live multi-day price forecasts, powered by LightGBM + SARIMA</p>
   </header>
 
-  <!-- ========== SUMMARY BAR ========== -->
-  <section class="summary-bar" id="summaryBar">
-    <div class="summary-item">
-      <span class="summary-label">Commodities</span>
-      <span class="summary-value" id="sumCount">5</span>
-    </div>
-    <div class="summary-divider"></div>
-    <div class="summary-item">
-      <span class="summary-label">Avg MAPE</span>
-      <span class="summary-value" id="sumMape">—</span>
-    </div>
-    <div class="summary-divider"></div>
-    <div class="summary-item">
-      <span class="summary-label">Avg RMSE</span>
-      <span class="summary-value" id="sumRmse">—</span>
-    </div>
-    <div class="summary-divider"></div>
-    <div class="summary-item">
-      <span class="summary-label">Forecast Horizon</span>
-      <span class="summary-value">30 Days</span>
-    </div>
-    <div class="summary-divider"></div>
-    <div class="summary-item">
-      <span class="summary-label">Model</span>
-      <span class="summary-value">LGBM + SARIMA</span>
-    </div>
-  </section>
-
-  <!-- ========== COMMODITY CARDS ========== -->
   <main>
-    <section class="section-title-row">
-      <h2 class="section-title">Live Prices</h2>
-      <span class="section-subtitle">Click any commodity for detailed analysis</span>
-    </section>
-
     <div id="cards-grid" class="cards-grid"></div>
-
-    <!-- ========== EXPANDED DETAIL SECTION (below cards) ========== -->
-    <section id="detail-section" class="detail-section hidden">
-      <div class="detail-header">
-        <div class="detail-title-group">
-          <span class="detail-icon" id="detailIcon"></span>
-          <div>
-            <h2 class="detail-name" id="detailName"></h2>
-            <span class="detail-unit" id="detailUnit"></span>
-          </div>
-        </div>
-        <div class="detail-price-group">
-          <span class="detail-price" id="detailPrice"></span>
-          <span class="detail-change" id="detailChange"></span>
-        </div>
-        <button class="detail-close" id="detailClose" title="Close">✕</button>
-      </div>
-
-      <!-- Metrics pills -->
-      <div class="detail-metrics" id="detailMetrics"></div>
-
-      <!-- Timeframe selector -->
-      <div class="detail-timeframes" id="detailTimeframes">
-        <button class="tf-btn active" data-tf="1M">1M</button>
-        <button class="tf-btn" data-tf="3M">3M</button>
-        <button class="tf-btn" data-tf="6M">6M</button>
-        <button class="tf-btn" data-tf="1Y">1Y</button>
-        <button class="tf-btn" data-tf="3Y">3Y</button>
-        <button class="tf-btn" data-tf="MAX">Max</button>
-      </div>
-
-      <!-- Main chart: history (blue) + forecast (green) + CI band -->
-      <div class="detail-chart-wrap">
-        <div class="chart-legend">
-          <span class="legend-item"><span class="legend-dot" style="background:#3B82F6"></span> Historical Price</span>
-          <span class="legend-item"><span class="legend-dot" style="background:#22C55E"></span> Ensemble Forecast</span>
-          <span class="legend-item"><span class="legend-dot legend-dot-band" style="background:rgba(34,197,94,0.15);border:1px solid #22C55E"></span> Confidence Band</span>
-          <span class="legend-item"><span class="legend-dot" style="background:#F59E0B"></span> LightGBM</span>
-          <span class="legend-item"><span class="legend-dot" style="background:#A78BFA"></span> SARIMA</span>
-        </div>
-        <canvas id="detailChart"></canvas>
-      </div>
-
-      <!-- Recommendation banner -->
-      <div class="recommendation-banner" id="recommendBanner"></div>
-
-      <!-- Forecast table -->
-      <div class="forecast-table-wrap">
-        <h3 class="table-title">30-Day Forecast Breakdown</h3>
-        <div class="table-scroll">
-          <table class="forecast-table" id="forecastTable">
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>Date</th>
-                <th>Ensemble</th>
-                <th>LightGBM</th>
-                <th>SARIMA</th>
-                <th>CI Low</th>
-                <th>CI High</th>
-                <th>Change</th>
-                <th>Signal</th>
-              </tr>
-            </thead>
-            <tbody id="forecastTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
   </main>
 
-  <!-- ========== FOOTER ========== -->
   <footer class="site-footer">
-    <p>Commodity Intelligence &copy; 2026 &middot; Forecasts are for educational/portfolio purposes only — not financial advice.</p>
-    <p class="footer-tech">Powered by LightGBM + SARIMA ensemble &middot; Optuna-tuned hyperparameters &middot; Recursive multi-day forecasting</p>
+    Forecasts are for educational/portfolio purposes only -- not financial advice.
   </footer>
+
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-content"></div>
+  </div>
 
   <script src="js/dashboard.js"></script>
 </body>
