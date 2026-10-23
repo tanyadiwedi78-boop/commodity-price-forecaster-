@@ -100,9 +100,20 @@ LGBM_PARAMS = {
     "verbose"      : -1,
     "random_state" : 42,
 }
+XGB_PARAMS = {
+    "objective"    : "reg:squarederror",
+    "eval_metric"  : "rmse",
+    "n_estimators" : 1000,
+    "learning_rate": 0.03,
+    "max_depth"    : 6,
+    "subsample"    : 0.8,
+    "colsample_bytree": 0.8,
+    "random_state" : 42,
+    "n_jobs"       : -1,
+}
 SARIMA_ORDER    = (1,1,1)
 SARIMA_SEASONAL  = (1,1,1,12)
-ENSEMBLE_WEIGHTS = {"lgbm" : 0.55 , "sarima" : 0.45}
+ENSEMBLE_WEIGHTS = {"lgbm" : 0.40, "xgb": 0.40, "sarima" : 0.20}
 
 #------------------------- TECHNICAL INDICATOR---------------------------#
 RSI_PERIOD       = 14

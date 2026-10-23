@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import joblib, os, sys, logging, json
 import lightgbm as lgb
+import xgboost as xgb
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 
@@ -10,7 +11,7 @@ sys.path.append("..")
 
 from config.settings import (
     COMMODITIES, PROCESSED_PATH, MODELS_PATH,
-    TEST_START, TEST_END, LGBM_PARAMS,
+    TEST_START, TEST_END, LGBM_PARAMS, XGB_PARAMS,
     SARIMA_ORDER, SARIMA_SEASONAL, ENSEMBLE_WEIGHTS,
     LOG_PATH
 )
@@ -162,6 +163,19 @@ def train_sarima(train, test):
     return fitted, preds.values
 
 
+def train_xgboost(train, test, feat_cols, name):
+    """Train XGBoost regressor on return target"""
+    X_train, y_train = train[feat_cols], train["target_return"]
+    X_test = test[feat_cols]
+
+    params = XGB_PARAMS.copy()
+    model = xgb.XGBRegressor(**params)
+    model.fit(X_train, y_train)
+    predicted_returns = model.predict(X_test)
+    price_preds = test["close_usd"].values * (1 + predicted_returns)
+    return model, price_preds, predicted_returns
+
+
 # ════════════════════════════════════════════════
 # STEP 5: EVALUATE
 # ════════════════════════════════════════════════
@@ -219,18 +233,23 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
         return None
 
     lgbm_model, dir_clf, lgbm_preds, lgbm_predicted_returns = train_lgbm(train, test, feat_cols, name)
+    xgb_model, xgb_preds, xgb_predicted_returns = train_xgboost(train, test, feat_cols, name)
     sarima_model, sarima_preds = train_sarima(train, test)
 
-    # Weighted ensemble (weights from settings.py)
+    # Weighted ensemble (weights from settings.py: lgbm, xgb, sarima)
     w = ENSEMBLE_WEIGHTS
-    ensemble_preds = (w["lgbm"] * lgbm_preds) + (w["sarima"] * sarima_preds)
+    ensemble_preds = (w["lgbm"] * lgbm_preds) + (w["xgb"] * xgb_preds) + (w["sarima"] * sarima_preds)
 
     y_true = test["target"].values
     evaluate(y_true, lgbm_preds, "LightGBM")
+    evaluate(y_true, xgb_preds, "XGBoost")
     evaluate(y_true, sarima_preds, "SARIMA")
     ensemble_rmse, ensemble_mae, ensemble_mape, ensemble_dir_acc = evaluate(y_true, ensemble_preds, "Ensemble")
     lgbm_return_dir_acc = evaluate_direction_from_returns(
         test["target_return"].values, lgbm_predicted_returns, "LightGBM"
+    )
+    xgb_return_dir_acc = evaluate_direction_from_returns(
+        test["target_return"].values, xgb_predicted_returns, "XGBoost"
     )
 
     # Direction classifier standalone accuracy
@@ -248,6 +267,7 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
         "directional_accuracy_return_based": round(float(lgbm_return_dir_acc), 1),
         "direction_clf_accuracy": round(float(clf_da), 1),
         "w_lgbm": ENSEMBLE_WEIGHTS["lgbm"],
+        "w_xgb": ENSEMBLE_WEIGHTS["xgb"],
         "w_sarima": ENSEMBLE_WEIGHTS["sarima"],
     }
 
@@ -262,11 +282,12 @@ def train_commodity(name, df_all, feat_cols, all_metrics):
     # Save models
     safe_name = name.replace(" ", "_").lower()
     joblib.dump(lgbm_model, f"{MODELS_PATH}{safe_name}_lgbm.pkl")
+    joblib.dump(xgb_model, f"{MODELS_PATH}{safe_name}_xgb.pkl")
     joblib.dump(dir_clf, f"{MODELS_PATH}{safe_name}_dir_clf.pkl")
     joblib.dump(sarima_model, f"{MODELS_PATH}{safe_name}_sarima.pkl")
-    log_print(f"    Saved: {safe_name}_lgbm.pkl, {safe_name}_dir_clf.pkl, {safe_name}_sarima.pkl")
+    log_print(f"    Saved: {safe_name}_lgbm.pkl, {safe_name}_xgb.pkl, {safe_name}_dir_clf.pkl, {safe_name}_sarima.pkl")
 
-    return {"lgbm": lgbm_model, "dir_clf": dir_clf, "sarima": sarima_model}
+    return {"lgbm": lgbm_model, "xgb": xgb_model, "dir_clf": dir_clf, "sarima": sarima_model}
 
 
 # ════════════════════════════════════════════════

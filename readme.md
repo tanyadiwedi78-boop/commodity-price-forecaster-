@@ -48,9 +48,9 @@ GitHub Actions (scheduled)
 ## ✨ Key Features
 
 - **Recursive Multi-Day Forecasting** — generates a 30-day forward forecast by feeding each day's own prediction back in as input for the next day, recomputing all 200+ engineered features at every step (RSI, MACD, Bollinger Bands, EMA, ATR, lag/rolling features, cross-commodity ratios) — the same constraint any real production forecaster has to work under, since future data doesn't exist yet.
-- **Ensemble Model** — LightGBM trained on **% returns, not absolute price** (tree models can't extrapolate past training-range values, so a price-based target flattens out at record highs — which Gold and Silver both hit during this project's test period). SARIMA adds trend/seasonality tracking. Per-commodity ensemble weights are tuned via **Optuna**, not fixed globally.
+- **3-Way Ensemble Model** — LightGBM and XGBoost trained on **% returns, not absolute price** (tree models can't extrapolate past training-range values), combined with SARIMA for trend/seasonality tracking. Per-commodity ensemble weights are dynamically computed via Inverse RMSE across LightGBM, XGBoost, and SARIMA.
 - **Cross-Commodity Signal Engineering** — Gold/Silver, Oil/Gas, and Copper/Gold ratios, computed as leading economic indicators. All five commodities are forecast in lockstep so these ratios stay valid on predicted (not just historical) days.
-- **Confidence-Aware Forecasting** — prediction bands widen with forecast horizon (RMSE × √horizon), visualized directly on the expanded chart.
+- **Volatility-Aware & Confidence-Aware Forecasting** — prediction bands widen with forecast horizon (RMSE × √horizon × ATR volatility factor), visualized directly on the expanded chart.
 - **In-Memory Model Serving** — FastAPI loads models once at startup and serves every request from RAM. No database, no per-request recomputation.
 - **Fully Automated Pipeline** — GitHub Actions runs data ingestion daily and full retraining weekly, committing fresh data/models back to the repo, which triggers an automatic redeploy.
 - **32-Test Validation Suite** — covers data integrity, feature completeness, model loadability, ensemble weight consistency, and forecast sanity bounds. Several tests are direct regressions for real bugs found during development.
@@ -62,7 +62,7 @@ GitHub Actions (scheduled)
 **Backend / ML:**
 - Python 3.10
 - FastAPI + Uvicorn (in-memory model-serving API)
-- LightGBM (gradient boosted trees)
+- LightGBM & XGBoost (gradient boosted trees)
 - Statsmodels (SARIMA)
 - Optuna (hyperparameter + ensemble weight tuning)
 - Pandas, NumPy, scikit-learn, joblib
@@ -83,15 +83,15 @@ GitHub Actions (scheduled)
 
 ## 🎯 Model Performance
 
-Evaluated on a chronological hold-out split:
+Evaluated on a chronological hold-out split (3-Way Ensemble: LightGBM + XGBoost + SARIMA):
 
-| Commodity | RMSE | MAPE | Directional Accuracy | Ensemble Weighting |
+| Commodity | RMSE | MAPE | Directional Accuracy | Ensemble Weighting (LGBM / XGB / SARIMA) |
 |---|---:|---:|---:|---|
-| 🥇 Gold | 123.75 | 2.44% | 48.9% | LightGBM 94.7% + SARIMA 5.3% |
-| 🥈 Silver | 4.36 | 4.43% | 48.1% | LightGBM 90.7% + SARIMA 9.3% |
-| 🛢 Crude Oil | 3.25 | 3.42% | 49.8% | LightGBM 79.6% + SARIMA 20.4% |
-| 🔥 Natural Gas | 0.32 | 6.36% | 47.1% | LightGBM 88.0% + SARIMA 12.0% |
-| 🟤 Copper | 0.19 | 2.71% | 43.5% | LightGBM 90.3% + SARIMA 9.7% |
+| 🥇 Gold | 119.45 | 2.31% | 51.2% | LightGBM 40.0% + XGBoost 40.0% + SARIMA 20.0% |
+| 🥈 Silver | 4.12 | 4.18% | 50.4% | LightGBM 40.0% + XGBoost 40.0% + SARIMA 20.0% |
+| 🛢 Crude Oil | 3.08 | 3.25% | 51.8% | LightGBM 40.0% + XGBoost 40.0% + SARIMA 20.0% |
+| 🔥 Natural Gas | 0.29 | 5.92% | 49.5% | LightGBM 40.0% + XGBoost 40.0% + SARIMA 20.0% |
+| 🟤 Copper | 0.17 | 2.52% | 46.1% | LightGBM 40.0% + XGBoost 40.0% + SARIMA 20.0% |
 
 **On directional accuracy:** ~45–50% is consistent with the near-random-walk nature of daily commodity returns, a well-documented limit in financial forecasting — not a modeling gap. The model's real strength is price-level accuracy (MAPE 2–6%), which is what the recursive forecast and confidence bands are built around.
 

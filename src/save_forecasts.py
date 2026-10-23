@@ -40,8 +40,9 @@ def load_ensemble_weights(name):
         with open(path) as f:
             w = json.load(f)
         return {
-            "lgbm": w.get("lgbm", w.get("w_lgbm")),
-            "sarima": w.get("sarima", w.get("w_sarima")),
+            "lgbm": w.get("lgbm", w.get("w_lgbm", 0.4)),
+            "xgb": w.get("xgb", w.get("w_xgb", 0.4)),
+            "sarima": w.get("sarima", w.get("w_sarima", 0.2)),
         }
     return ENSEMBLE_WEIGHTS
 
@@ -62,6 +63,14 @@ def get_recommendation(current_price, predicted_price, mape):
 def load_lgbm_model(name):
     safe_name = name.replace(" ", "_").lower()
     return joblib.load(f"{MODELS_PATH}{safe_name}_lgbm.pkl")
+
+
+def load_xgb_model(name):
+    safe_name = name.replace(" ", "_").lower()
+    path = f"{MODELS_PATH}{safe_name}_xgb.pkl"
+    if os.path.exists(path):
+        return joblib.load(path)
+    return None
 
 
 def load_dir_clf(name):
@@ -124,7 +133,7 @@ def recompute_features_for_all(df_all):
 def generate_all_forecasts_recursive(df_all, feat_cols):
     df_working = df_all.copy()
     sarima_paths, usdinr_latest, conv_types = {}, {}, {}
-    last_closes, last_dates, lgbm_models, dir_clfs = {}, {}, {}, {}
+    last_closes, last_dates, lgbm_models, xgb_models, dir_clfs = {}, {}, {}, {}, {}
 
     for name in COMMODITIES:
         dfc = df_all[df_all["commodity"] == name].sort_values("date")
@@ -135,6 +144,7 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
         last_closes[name] = float(dfc["close_usd"].iloc[-1])
         last_dates[name] = dfc["date"].iloc[-1]
         lgbm_models[name] = load_lgbm_model(name)
+        xgb_models[name] = load_xgb_model(name)
         dir_clfs[name] = load_dir_clf(name)
 
     forecasts_by_commodity = {name: [] for name in COMMODITIES}
@@ -149,19 +159,32 @@ def generate_all_forecasts_recursive(df_all, feat_cols):
             raw_return = float(lgbm_models[name].predict(X)[0])
             lgbm_return = blend_with_classifier(raw_return, X, dir_clfs[name])
 
+            xgb_return = 0.0
+            if xgb_models[name] is not None:
+                xgb_return = float(xgb_models[name].predict(X)[0])
+
             prev_close = (last_closes[name] if day == 0
                         else df_working[df_working["commodity"] == name]["close_usd"].iloc[-1])
             lgbm_price = prev_close * (1 + lgbm_return)
+            xgb_price = prev_close * (1 + xgb_return)
             sarima_price = sarima_paths[name][day]
 
             w = load_ensemble_weights(name)
-            predicted = w["lgbm"] * lgbm_price + w["sarima"] * sarima_price
+            w_l = w.get("lgbm", 0.4)
+            w_x = w.get("xgb", 0.4)
+            w_s = w.get("sarima", 0.2)
+            total_w = w_l + w_x + w_s
+            if total_w > 0:
+                w_l, w_x, w_s = w_l/total_w, w_x/total_w, w_s/total_w
+            predicted = (w_l * lgbm_price) + (w_x * xgb_price) + (w_s * sarima_price)
 
             metrics = load_metrics(name)
             rmse = metrics["rmse"] or 0
             mape = metrics["mape"]
 
-            band_width_usd = rmse * ((day + 1) ** 0.5)
+            latest_atr = float(latest.get("atr", rmse))
+            vol_factor = max(0.8, min(1.5, latest_atr / (rmse + 1e-9))) if rmse > 0 else 1.0
+            band_width_usd = rmse * ((day + 1) ** 0.5) * vol_factor
             ci_low_usd = predicted - band_width_usd
             ci_high_usd = predicted + band_width_usd
             forecast_date = (last_dates[name] + timedelta(days=day + 1)).date()

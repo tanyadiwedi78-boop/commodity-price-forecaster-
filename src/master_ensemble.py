@@ -49,6 +49,18 @@ def lgbm_preds(name, X_test, current_prices):
     return pd.Series(price_preds, index=X_test.index)
 
 
+def xgb_preds(name, X_test, current_prices):
+    """XGBoost predicts a % return -- convert back to price."""
+    safe_name = name.replace(" ", "_").lower()
+    model_path = f"{MODELS_PATH}{safe_name}_xgb.pkl"
+    if not os.path.exists(model_path):
+        return None
+    model = joblib.load(model_path)
+    predicted_returns = model.predict(X_test)
+    price_preds = current_prices * (1 + predicted_returns)
+    return pd.Series(price_preds, index=X_test.index)
+
+
 def sarima_preds(name, n_steps):
     safe_name = name.replace(" ", "_").lower()
     model_path = f"{MODELS_PATH}{safe_name}_sarima.pkl"
@@ -61,14 +73,14 @@ def sarima_preds(name, n_steps):
 
 # ════════════════════════════════════════════════
 # INVERSE-RMSE WEIGHTING
-# The model with the LOWER error automatically gets MORE weight.
-# This replaces a fixed 55/45 guess with a number the models earned.
 # ════════════════════════════════════════════════
 
-def inverse_rmse_weights(rmse_a, rmse_b):
-    w_a = (1 / rmse_a) / (1 / rmse_a + 1 / rmse_b)
-    w_b = (1 / rmse_b) / (1 / rmse_a + 1 / rmse_b)
-    return round(w_a, 3), round(w_b, 3)
+def inverse_rmse_weights_3way(rmse_l, rmse_x, rmse_s):
+    inv_l = 1 / rmse_l
+    inv_x = 1 / rmse_x
+    inv_s = 1 / rmse_s
+    total = inv_l + inv_x + inv_s
+    return round(inv_l / total, 3), round(inv_x / total, 3), round(inv_s / total, 3)
 
 
 # ════════════════════════════════════════════════
